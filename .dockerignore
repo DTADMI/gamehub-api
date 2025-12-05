@@ -1,0 +1,66 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# Build files
+**/target/
+**/node_modules/
+**/dist/
+**/.next/
+
+# Dependency directories
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local development
+.docker/
+**/docker-compose*.yml
+
+# Testing
+**/coverage/
+**/cypress/
+**/__tests__/
+**/*.test.*
+**/*.spec.*
+
+# Misc
+*.md
+!.github/
+.git/
+.gitignore
+
+# Cloud SQL Proxy
+**/cloud_sql_proxy
+**/cloudsql/
+
+# Java specific
+**/mvnw
+**/mvnw.cmd
+**/.mvn/
+**/mvn/
+**/pom.xml.versionsBackup

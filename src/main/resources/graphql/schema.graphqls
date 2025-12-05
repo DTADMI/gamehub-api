@@ -1,0 +1,78 @@
+# src/main/resources/graphql/schema.graphqls
+scalar JSON
+
+type Query {
+    gameScores(gameType: String!, limit: Int): [GameScore!]!
+    userScores(userId: ID, gameType: String, limit: Int): [GameScore!]!
+    leaderboard(gameType: String!, limit: Int): [LeaderboardEntry!]!
+    gameStats(gameType: String!): GameStats!
+    userStats(userId: ID!, gameType: String): UserGameStats!
+}
+
+type Mutation {
+    submitScore(input: ScoreInput!): GameScore!
+    updateUserProfile(input: UserProfileInput!): User!
+}
+
+type GameScore {
+    id: ID!
+    user: User!
+    gameType: String!
+    score: Int!
+    createdAt: String!
+    metadata: JSON
+}
+
+type User {
+    id: ID!
+    username: String!
+    email: String!
+    avatar: String
+    stats: UserStats!
+}
+
+type UserStats {
+    totalGames: Int!
+    totalScore: Int!
+    achievements: [Achievement!]!
+}
+
+type Achievement {
+    id: ID!
+    name: String!
+    description: String!
+    icon: String!
+    unlockedAt: String!
+}
+
+type LeaderboardEntry {
+    rank: Int!
+    user: User!
+    score: Int!
+    gameType: String!
+}
+
+type GameStats {
+    totalGames: Int!
+    averageScore: Float!
+    highScore: Int!
+    highScorer: User
+}
+
+type UserGameStats {
+    totalGames: Int!
+    highScore: Int!
+    averageScore: Float!
+    rank: Int
+}
+
+input ScoreInput {
+    gameType: String!
+    score: Int!
+    metadata: JSON
+}
+
+input UserProfileInput {
+    username: String
+    avatar: String
+}

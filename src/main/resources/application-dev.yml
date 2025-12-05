@@ -1,0 +1,33 @@
+server:
+  port: ${PORT:8080}
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    # File-based DB under target/ so it resets on clean builds but persists during a dev session
+    url: jdbc:h2:file:./target/h2/devdb;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  h2:
+    console:
+      enabled: true
+
+# Disable any Cloud SQL specific configuration in dev profile (if present)
+cloud:
+  gcp:
+    sql:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: WARN
+    com.games: DEBUG

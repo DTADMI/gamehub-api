@@ -1,0 +1,86 @@
+package ca.dtadmi.gamehubapi.security;
+
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+
+public class RateLimitFilter extends OncePerRequestFilter {
+    private static final Logger logger = LoggerFactory.getLogger(RateLimitFilter.class);
+
+    private final RateLimiter rateLimiter;
+    private final List<String> excludedPaths = List.of("/actuator/health", "/error");
+
+    public RateLimitFilter(RateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String requestUri = request.getRequestURI();
+        if (excludedPaths.stream().anyMatch(requestUri::startsWith)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String clientIp = getClientIP(request);
+        int limit = rateLimiter.getRateLimiterConfig().getLimitForPeriod();
+
+        try {
+            boolean permission = rateLimiter.acquirePermission();
+            int remaining = Math.max(0, (int) rateLimiter.getMetrics().getAvailablePermissions());
+            response.setHeader("X-RateLimit-Limit", String.valueOf(limit));
+            response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
+
+            if (permission) {
+                filterChain.doFilter(request, response);
+            } else {
+                rateLimitExceeded(response, clientIp, requestUri);
+            }
+        } catch (Exception e) {
+            handleRateLimitError(response, e);
+        }
+    }
+
+    private String getClientIP(HttpServletRequest request) {
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader != null && !xfHeader.isBlank()) {
+            return xfHeader.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+
+    private void rateLimitExceeded(HttpServletResponse response, String clientIp, String requestUri) throws IOException {
+        logger.warn("Rate limit exceeded for {} - {}", clientIp, requestUri);
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(Duration.ofMinutes(1).toSeconds()));
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("""
+                {"error":"Too many requests","message":"Rate limit exceeded. Please try again later."}
+                """);
+    }
+
+    private void handleRateLimitError(HttpServletResponse response, Exception e) throws IOException {
+        logger.error("Rate limiting error", e);
+        response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("""
+                {"error":"Internal server error","message":"An error occurred while processing your request."}
+                """);
+    }
+}

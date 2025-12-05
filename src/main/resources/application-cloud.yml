@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql:///${DB_NAME}?cloudSqlInstance=${GCP_INSTANCE_CONNECTION_NAME}&socketFactory=com.google.cloud.sql.postgres.SocketFactory&sslmode=disable}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 10000
+      connection-timeout: 20000
+      max-lifetime: 300000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  sql:
+    init:
+      mode: never
+
+# Google Cloud SQL settings
+spring.cloud.gcp.sql:
+  instance-connection-name: ${GCP_INSTANCE_CONNECTION_NAME}
+  database-name: ${DB_NAME}
+  credentials:
+    location: classpath:gcp-credentials.json
+    encoded-key: ${GCP_CREDENTIALS_JSON:}
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.zaxxer.hikari: DEBUG

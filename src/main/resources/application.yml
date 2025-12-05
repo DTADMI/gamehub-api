@@ -1,0 +1,75 @@
+server:
+  port: ${PORT:8080}  # Cloud Run passes $PORT; default to 8080 for backend
+  # Add this to display the selected port in the console
+  address: 0.0.0.0
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  application:
+    name: games-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gamesdb}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  jwtSecret: ${APP_JWT_SECRET:dev-secret}
+  jwtExpirationInMs: ${APP_JWT_EXPIRATION_MS:86400000} # 1 day
+
+# Feature flags
+features:
+  realtime_enabled: true
+  chess_enabled: true
+  checkers_enabled: true
+  payments:
+    stripe_enabled: false
+  cache:
+    redis_enabled: false
+  kv:
+    redis_enabled: false
+  db:
+    external_enabled: true
+  mail:
+    provider: smtp
+
+# CORS Configuration
+cors:
+  allowed-origins: "http://localhost:8080,http://localhost:3001"
+  allowed-methods: "GET, POST, PUT, DELETE, OPTIONS"
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
+# Firebase Configuration
+firebase:
+  type: ${NEXT_FIREBASE_CREDS_TYPE:}
+  projectId: ${NEXT_FIREBASE_CREDS_PROJECT_ID:}
+  privateKeyId: ${NEXT_FIREBASE_CREDS_PRIVATE_KEY_ID:}
+  privateKey: ${NEXT_FIREBASE_CREDS_PRIVATE_KEY:}
+  clientEmail: ${NEXT_FIREBASE_CREDS_CLIENT_EMAIL:}
+  clientId: ${NEXT_FIREBASE_CREDS_CLIENT_ID:}
+  authUri: ${NEXT_FIREBASE_CREDS_AUTH_URI:https://accounts.google.com/o/oauth2/auth}
+  tokenUri: ${NEXT_FIREBASE_CREDS_TOKEN_URI:https://oauth2.googleapis.com/token}
+  authProviderX509CertUrl: ${NEXT_FIREBASE_CREDS_AUTH_PROVIDER_X509_CERT_URL:https://www.googleapis.com/oauth2/v1/certs}
+  clientX509CertUrl: ${NEXT_FIREBASE_CREDS_CLIENT_X509_CERT_URL:}
+  universeDomain: ${NEXT_FIREBASE_CREDS_UNIVERSE_DOMAIN:googleapis.com}

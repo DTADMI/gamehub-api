@@ -1,0 +1,15 @@
+## Local development profile overrides
+## Activate with: mvn spring-boot:run -Dspring-boot.run.profiles=local
+
+server:
+  port: 8080
+
+spring:
+  jpa:
+    open-in-view: false # avoid Open Session in View warning locally
+
+logging:
+  level:
+    com.games: DEBUG
+
+# No firebase.* needed in local because Firebase beans are gated to prod profile
