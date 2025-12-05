@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8080}  # Cloud Run passes $PORT; default to 8080 for backend
+  port: ${PORT:3000}  # Cloud Run passes $PORT; default to 3000 for backend (frontend uses 8080)
   # Add this to display the selected port in the console
   address: 0.0.0.0
 
