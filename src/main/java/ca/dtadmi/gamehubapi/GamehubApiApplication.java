@@ -9,8 +9,8 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = "ca.dtadmi.gamehubapi")
-@EntityScan("ca.dtadmi.gamehubapi.model")
-@EnableJpaRepositories("ca.dtadmi.gamehubapi.repository")
+@EntityScan("ca.dtadmi.gamehubapi")
+@EnableJpaRepositories("ca.dtadmi.gamehubapi")
 @EnableCaching
 @EnableConfigurationProperties(FirebaseConfig.class)
 public class GamehubApiApplication {

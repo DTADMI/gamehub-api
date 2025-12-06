@@ -18,12 +18,25 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(allowedOrigins.split(","))
+                        .allowedOrigins(parseOrigins(allowedOrigins))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true)
                         .maxAge(3600L);
             }
         };
+    }
+
+    private String[] parseOrigins(String csv) {
+        if (csv == null || csv.isBlank()) return new String[0];
+        String[] parts = csv.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String s = parts[i].trim();
+            if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
+                s = s.substring(1, s.length() - 1);
+            }
+            parts[i] = s;
+        }
+        return parts;
     }
 }

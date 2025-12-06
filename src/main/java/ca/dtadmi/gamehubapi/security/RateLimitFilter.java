@@ -41,19 +41,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String clientIp = getClientIP(request);
         int limit = rateLimiter.getRateLimiterConfig().getLimitForPeriod();
 
-        try {
-            boolean permission = rateLimiter.acquirePermission();
-            int remaining = Math.max(0, (int) rateLimiter.getMetrics().getAvailablePermissions());
-            response.setHeader("X-RateLimit-Limit", String.valueOf(limit));
-            response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
+        boolean permission = rateLimiter.acquirePermission();
+        int remaining = Math.max(0, (int) rateLimiter.getMetrics().getAvailablePermissions());
+        response.setHeader("X-RateLimit-Limit", String.valueOf(limit));
+        response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
 
-            if (permission) {
-                filterChain.doFilter(request, response);
-            } else {
-                rateLimitExceeded(response, clientIp, requestUri);
-            }
-        } catch (Exception e) {
-            handleRateLimitError(response, e);
+        if (permission) {
+            filterChain.doFilter(request, response);
+        } else {
+            rateLimitExceeded(response, clientIp, requestUri);
         }
     }
 
@@ -75,12 +71,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 """);
     }
 
-    private void handleRateLimitError(HttpServletResponse response, Exception e) throws IOException {
-        logger.error("Rate limiting error", e);
-        response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("""
-                {"error":"Internal server error","message":"An error occurred while processing your request."}
-                """);
-    }
+    // Let downstream exceptions propagate to Spring's exception handlers; avoid converting to 500 here.
 }

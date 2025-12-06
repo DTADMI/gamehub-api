@@ -19,7 +19,7 @@ Key defaults for local dev:
 Table of contents
 
 1. Tech stack and design choices (pros/cons and alternatives)
-2. Environment variables (local, CI/CD, GCP)
+2. Environment variables (local, CI/CD, GCP) and .env/.env.local loading
 3. Running locally (dev profile, port 3000)
 4. Running tests (Testcontainers)
 5. Manual deployment to GCP (Cloud Run)
@@ -57,7 +57,46 @@ Security
 - Public read endpoints for games/projects; gated/admin endpoints require roles
 - JWT path available; optional Firebase token filter can be enabled by providing credentials
 
-## 2) Environment variables
+## 2) Environment variables (and .env/.env.local loading)
+
+The backend now auto-loads variables from `.env` and `.env.local` in the project root when the app starts.
+
+Precedence rules:
+
+- JVM system properties and real OS environment variables have highest precedence
+- `.env.local` overrides `.env`
+- `application-*.yml` defaults are lowest and get overridden by the items above
+
+This lets you keep developer-specific overrides in `.env.local` (which should be git-ignored) without changing YAML.
+
+Examples of useful entries in `.env.local`:
+
+```
+# CORS (frontend origins allowed in dev)
+CORS_ALLOWED_ORIGINS=http://localhost:8080
+
+# JWT
+APP_JWT_SECRET=local-dev-secret
+APP_JWT_EXPIRATION_MS=86400000
+
+# Contact links consumed by /api/meta
+APP_GITHUB_URL=https://github.com/yourname
+APP_LINKEDIN_URL=https://www.linkedin.com/in/yourname
+APP_CONTACT_EMAIL=you@example.com
+
+# Database for default profile (dev profile uses H2 by default)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=gamesdb
+DB_USER=postgres
+DB_PASSWORD=postgres
+```
+
+Notes:
+
+- Quotes are optional; if you add quotes around values in `.env`/`.env.local`, the loader strips the outer quotes.
+- For multiple CORS origins, separate by comma: `CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080`
+- In production (Cloud Run), prefer Secret Manager and service-level env vars instead of `.env` files.
 
 Contact/social (displayed by frontend and available via `/api/meta`):
 
@@ -93,6 +132,8 @@ mvn -Pdev spring-boot:run -Dspring-boot.run.profiles=dev
 
 Backend listens on http://localhost:3000.
 
+With `.env.local` present, the app will automatically pick up your settings (e.g., `CORS_ALLOWED_ORIGINS`).
+
 Default profile (Postgres):
 ```
 docker run --rm \
@@ -116,6 +157,12 @@ Useful public endpoints:
 - `GET /api/features` — current feature flags
 - `GET /api/projects` — placeholder projects list
 - `GET /api/featured` — sample featured games
+
+To verify `.env.local` loading, you can:
+
+- Set `APP_GITHUB_URL` and call `GET /api/meta` to see the value reflected.
+- Set `CORS_ALLOWED_ORIGINS` and initiate a request from the frontend at that origin; the CORS preflight (OPTIONS)
+  should now succeed with `Access-Control-Allow-Origin` present.
 
 ## 4) Running tests
 

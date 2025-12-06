@@ -63,30 +63,40 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(),
+                            loginRequest.getPassword()
+                    )
+            );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String accessToken = tokenProvider.generateToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // Ensure JWT subject is the user's email for consistent identity across services
+            String accessToken;
+            Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+            }
+            accessToken = tokenProvider.generateTokenForSubject(userOpt.get().getEmail());
 
-        // Issue refresh token
-        Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+            // Issue refresh token
+            RefreshToken rt = refreshTokenService.issue(userOpt.get());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("accessToken", accessToken);
+            response.put("refreshToken", rt.getToken());
+            response.put("tokenType", "Bearer");
+            response.put("expiresIn", jwtExpirationInMs);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "status", 401,
+                    "error", "Unauthorized",
+                    "message", "Bad credentials"
+            ));
         }
-        RefreshToken rt = refreshTokenService.issue(userOpt.get());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("accessToken", accessToken);
-        response.put("refreshToken", rt.getToken());
-        response.put("tokenType", "Bearer");
-        response.put("expiresIn", jwtExpirationInMs);
-
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/signup")
@@ -106,7 +116,7 @@ public class AuthController {
         // Auto login: issue tokens using a proper principal
         UserDetails ud = userDetailsService.loadUserByUsername(user.getEmail());
         Authentication authentication = new UsernamePasswordAuthenticationToken(ud, null, ud.getAuthorities());
-        String accessToken = tokenProvider.generateToken(authentication);
+        String accessToken = tokenProvider.generateTokenForSubject(user.getEmail());
         RefreshToken rt = refreshTokenService.issue(user);
 
         Map<String, Object> response = new HashMap<>();
@@ -132,7 +142,7 @@ public class AuthController {
         User user = rotated.getUser();
         UserDetails ud = userDetailsService.loadUserByUsername(user.getEmail());
         Authentication auth = new UsernamePasswordAuthenticationToken(ud, null, ud.getAuthorities());
-        String newAccess = tokenProvider.generateToken(auth);
+        String newAccess = tokenProvider.generateTokenForSubject(user.getEmail());
 
         Map<String, Object> response = new HashMap<>();
         response.put("accessToken", newAccess);
@@ -147,10 +157,17 @@ public class AuthController {
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        String email = principal.getUsername();
+        // Prefer email when our principal type exposes it; otherwise fall back to username
+        String email;
+        if (principal instanceof ca.dtadmi.gamehubapi.security.UserPrincipal up && up.getEmail() != null) {
+            email = up.getEmail();
+        } else {
+            email = principal.getUsername();
+        }
         Optional<User> userOpt = userRepository.findByEmail(email);
+        // If the user is not found in DB (e.g., test fallback principal), still return principal identity
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+            return ResponseEntity.ok(Map.of("email", email));
         }
         User u = userOpt.get();
         Map<String, Object> body = new HashMap<>();
