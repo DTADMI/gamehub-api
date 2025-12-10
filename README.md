@@ -11,8 +11,8 @@ feature flags.
 
 Key defaults for local dev:
 
-- Backend runs on port 3000
-- Frontend runs on port 8080 (when used) and calls the backend at `/api`
+- Backend runs on port 8080
+- Frontend runs on port 3000 (when used) and calls the backend at `/api`
 
 —
 
@@ -20,7 +20,7 @@ Table of contents
 
 1. Tech stack and design choices (pros/cons and alternatives)
 2. Environment variables (local, CI/CD, GCP)
-3. Running locally (dev profile, port 3000)
+3. Running locally (dev profile, port 8080)
 4. Running tests (Testcontainers)
 5. Manual deployment to GCP (Cloud Run)
 6. CI/CD with GitHub Actions
@@ -61,7 +61,8 @@ Security
 
 Notes:
 
-- For multiple CORS origins, separate by comma: `CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080`
+- For multiple CORS origins, separate by comma:
+  `CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001`
 - In production (Cloud Run), prefer Secret Manager and service-level env vars instead of `.env` files.
 
 Contact/social (displayed by frontend and available via `/api/meta`):
@@ -96,7 +97,7 @@ Dev profile (H2; easy mode):
 mvn -Pdev spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Backend listens on http://localhost:3000.
+Backend listens on http://localhost:8080.
 
 Default profile (Postgres):
 ```
@@ -155,13 +156,13 @@ docker build -t ${IMAGE} .
 docker push ${IMAGE}
 ```
 
-Deploy to Cloud Run (backend on port 3000):
+Deploy to Cloud Run (backend on port 8080):
 ```
 gcloud run deploy ${SERVICE} \
   --region=${REGION} \
   --image=${IMAGE} \
   --allow-unauthenticated \
-  --port=3000 \
+  --port=8080 \
   --set-env-vars SPRING_PROFILES_ACTIVE=cloud \
   --set-env-vars APP_GITHUB_URL=...,APP_LINKEDIN_URL=...,APP_CONTACT_EMAIL=...
 ```
@@ -200,7 +201,7 @@ Feature flags:
 
 ## 8) Troubleshooting
 
-- Port in use: backend runs on 3000; stop conflicting processes or set `PORT` env when running
+- Port in use: backend runs on 8080; stop conflicting processes or set `PORT` env when running
 - Testcontainers slow: pre-pull `postgres:15-alpine`
 - Cloud Run deploy fails: check Artifact Registry permissions and `gcloud auth configure-docker`
 - Database connection: confirm `SPRING_DATASOURCE_URL` or `DB_*` envs; in `dev` profile H2 is used instead

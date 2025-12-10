@@ -44,10 +44,10 @@ ENV CLASSPATH=/app/lib/*:/app/app.jar
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/actuator/health || exit 1
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
 
 # Expose the port the app runs on
-EXPOSE 3000
+EXPOSE 8080
 
 # Copy the startup script from the backend directory
 COPY backend/startup.sh /app/startup.sh
