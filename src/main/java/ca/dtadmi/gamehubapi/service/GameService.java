@@ -40,7 +40,12 @@ public class GameService {
 
     @Cacheable(value = "leaderboard", key = "#gameType")
     public List<GameScore> getLeaderboard(String gameType) {
-        Pageable pageable = PageRequest.of(0, LEADERBOARD_SIZE, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
+        return getLeaderboard(gameType, LEADERBOARD_SIZE);
+    }
+
+    public List<GameScore> getLeaderboard(String gameType, Integer limit) {
+        int size = (limit == null || limit <= 0) ? LEADERBOARD_SIZE : Math.min(limit, 100);
+        Pageable pageable = PageRequest.of(0, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
         return gameScoreRepository.findTopScoresByGameType(gameType, pageable);
     }
 
@@ -56,8 +61,17 @@ public class GameService {
 
     @Cacheable(value = "userScores", key = "#userId + '_' + #gameType")
     public List<GameScore> getUserScores(Long userId, String gameType) {
-        Pageable pageable = PageRequest.of(0, USER_SCORES_LIMIT, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
+        return getUserScores(userId, gameType, USER_SCORES_LIMIT);
+    }
+
+    public List<GameScore> getUserScores(Long userId, String gameType, Integer limit) {
+        int size = (limit == null || limit <= 0) ? USER_SCORES_LIMIT : Math.min(limit, 100);
+        Pageable pageable = PageRequest.of(0, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
         return gameScoreRepository.findUserScores(userId, gameType, pageable);
+    }
+
+    public List<GameScore> recentScores(String gameType, Integer limit) {
+        return getLeaderboard(gameType, limit);
     }
 
     // Legacy aggregate endpoint support

@@ -145,6 +145,12 @@
          ad-hoc version properties. -->
 
     <dependencies>
+        <!-- OpenAPI/Swagger UI for REST documentation -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
         <!-- Database: use Postgres at runtime; keep H2 only for tests below to avoid duplicate declarations -->
 
         <!-- Spring Boot Starters -->

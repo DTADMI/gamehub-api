@@ -64,6 +64,14 @@ public class ScoreController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedScore);
     }
 
+    @GetMapping
+    public ResponseEntity<List<GameScore>> getScores(
+            @RequestParam String gameType,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(gameService.recentScores(gameType, limit));
+    }
+
     @GetMapping("/leaderboard")
     public ResponseEntity<Map<String, List<GameScore>>> getLeaderboard() {
         Map<String, List<GameScore>> leaderboard = gameService.getLeaderboard();
@@ -74,5 +82,14 @@ public class ScoreController {
     public ResponseEntity<Map<String, List<GameScore>>> getUserScores(@AuthenticationPrincipal User user) {
         Map<String, List<GameScore>> userScores = gameService.getUserScores(user.getId());
         return ResponseEntity.ok(userScores);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<GameScore>> getUserScoresById(
+            @PathVariable Long userId,
+            @RequestParam String gameType,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(gameService.getUserScores(userId, gameType, limit));
     }
 }

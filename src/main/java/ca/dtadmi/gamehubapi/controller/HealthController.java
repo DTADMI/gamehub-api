@@ -23,4 +23,12 @@ public class HealthController {
                 )
         );
     }
+
+    /**
+     * Frontend-friendly health endpoint under /api namespace.
+     */
+    @GetMapping("/api/health")
+    public ResponseEntity<Map<String, Object>> apiHealth() {
+        return healthz();
+    }
 }
