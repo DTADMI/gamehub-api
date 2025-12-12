@@ -5,6 +5,7 @@ import ca.dtadmi.gamehubapi.model.GameScore;
 import ca.dtadmi.gamehubapi.model.User;
 import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.service.GameService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -33,7 +34,7 @@ public class ScoreController {
     @PostMapping
     public ResponseEntity<GameScore> saveScore(
             Authentication authentication,
-            @RequestBody ScoreRequest request
+            @RequestBody @Valid ScoreRequest request
     ) {
         // Resolve or provision a User for the authenticated principal
         String username = null;
