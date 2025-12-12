@@ -9,7 +9,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig {
 
-    @Value("${cors.allowed-origins}")
+    // Default to '*' for MVP/local if not provided; override via env/property in prod
+    @Value("${cors.allowed-origins:*}")
     private String allowedOrigins;
 
     @Bean

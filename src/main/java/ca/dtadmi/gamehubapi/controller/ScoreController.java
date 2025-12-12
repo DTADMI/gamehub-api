@@ -5,6 +5,7 @@ import ca.dtadmi.gamehubapi.model.GameScore;
 import ca.dtadmi.gamehubapi.model.User;
 import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.service.GameService;
+import ca.dtadmi.gamehubapi.service.ScoreValidationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +25,13 @@ public class ScoreController {
     private final GameService gameService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ScoreValidationService scoreValidationService;
 
-    public ScoreController(GameService gameService, UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public ScoreController(GameService gameService, UserRepository userRepository, PasswordEncoder passwordEncoder, ScoreValidationService scoreValidationService) {
         this.gameService = gameService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.scoreValidationService = scoreValidationService;
     }
 
     @PostMapping
@@ -60,6 +63,9 @@ public class ScoreController {
             u.getRoles().add("ROLE_USER");
             return userRepository.save(u);
         });
+
+        // Anti-abuse basic validation (caps per game, non-negative)
+        scoreValidationService.validateOrThrow(request.gameType(), request.score());
 
         GameScore savedScore = gameService.saveScore(user, request.gameType(), request.score());
         return ResponseEntity.status(HttpStatus.CREATED).body(savedScore);
