@@ -3,15 +3,21 @@ package ca.dtadmi.gamehubapi.graphql;
 import ca.dtadmi.gamehubapi.dto.GameStatsDto;
 import ca.dtadmi.gamehubapi.dto.LeaderboardEntryDto;
 import ca.dtadmi.gamehubapi.dto.UserGameStatsDto;
+import ca.dtadmi.gamehubapi.graphql.pagination.CursorUtil;
+import ca.dtadmi.gamehubapi.graphql.types.GameType;
+import ca.dtadmi.gamehubapi.graphql.types.LeaderboardScope;
+import ca.dtadmi.gamehubapi.graphql.types.TimeWindow;
 import ca.dtadmi.gamehubapi.model.GameScore;
 import ca.dtadmi.gamehubapi.repository.GameScoreRepository;
 import ca.dtadmi.gamehubapi.repository.UserRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 import java.util.ArrayList;
@@ -24,67 +30,116 @@ public class QueryResolver {
     private final UserRepository userRepository;
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public List<GameScore> gameScores(
-            @Argument String gameType,
-            @Argument Integer limit) {
-        Pageable pageable = limit != null && limit > 0 ?
-                PageRequest.of(0, Math.min(limit, 100), Sort.by("score").descending().and(Sort.by("createdAt").ascending())) :
+            @Argument GameType gameType,
+            @Argument Integer first,
+            @Argument String after) {
+        int page = CursorUtil.decodeOffset(after);
+        int size = (first == null || first <= 0) ? 100 : Math.min(first, 200);
+        Pageable pageable = (size > 0) ?
+                PageRequest.of(page, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending())) :
                 Pageable.unpaged();
-        return gameScoreRepository.findTopScoresByGameType(gameType, pageable);
+        return gameScoreRepository.findTopScoresByGameType(gameType.toSlug(), pageable);
     }
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public List<GameScore> userScores(
             @Argument Long userId,
-            @Argument String gameType,
-            @Argument Integer limit) {
-        if (userId == null || gameType == null || gameType.isBlank()) {
+            @Argument GameType gameType,
+            @Argument Integer first,
+            @Argument String after) {
+        if (userId == null || gameType == null) {
             return List.of();
         }
-        int size = (limit == null || limit <= 0) ? 5 : Math.min(limit, 100);
-        Pageable pageable = PageRequest.of(0, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
-        return gameScoreRepository.findUserScores(userId, gameType, pageable);
+        int page = CursorUtil.decodeOffset(after);
+        int size = (first == null || first <= 0) ? 20 : Math.min(first, 200);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
+        return gameScoreRepository.findUserScores(userId, gameType.toSlug(), pageable);
     }
 
     @QueryMapping
-    public List<LeaderboardEntryDto> leaderboard(
-            @Argument String gameType,
-            @Argument Integer limit) {
-        int size = (limit == null || limit <= 0) ? 10 : Math.min(limit, 100);
-        Pageable pageable = PageRequest.of(0, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
-        List<GameScore> top = gameScoreRepository.findTopScoresByGameType(gameType, pageable);
-        List<LeaderboardEntryDto> list = new ArrayList<>(top.size());
+    @PreAuthorize("isAuthenticated()")
+    public LeaderboardConnection leaderboard(
+            @Argument GameType gameType,
+            @Argument LeaderboardScope scope,
+            @Argument TimeWindow window,
+            @Argument Integer first,
+            @Argument String after) {
+        int page = CursorUtil.decodeOffset(after);
+        int size = (first == null || first <= 0) ? 25 : Math.min(first, 200);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("score").descending().and(Sort.by("createdAt").ascending()));
+
+        // MVP: ignore scope and window filters (TODO)
+        List<GameScore> top = gameScoreRepository.findTopScoresByGameType(gameType.toSlug(), pageable);
+        long total = gameScoreRepository.countByGameType(gameType.toSlug());
+
+        List<LeaderboardEdge> edges = new ArrayList<>(top.size());
+        int startRank = page * size;
         for (int i = 0; i < top.size(); i++) {
             GameScore gs = top.get(i);
-            list.add(new LeaderboardEntryDto(i + 1, gs.getUser(), gs.getScore(), gs.getGameType()));
+            String cursor = CursorUtil.encodeOffset(page);
+            edges.add(new LeaderboardEdge(
+                    new LeaderboardEntryDto(
+                            startRank + i + 1,
+                            gs.getUser(),
+                            gs.getScore(),
+                            GameType.fromSlug(gs.getGameType())
+                    ),
+                    cursor));
         }
-        return list;
+        boolean hasNext = (long) ((page + 1) * size) < total;
+        PageInfo pageInfo = new PageInfo(hasNext, hasNext ? CursorUtil.encodeOffset(page + 1) : null);
+        return new LeaderboardConnection(edges, pageInfo);
     }
 
     @QueryMapping
-    public GameStatsDto gameStats(@Argument String gameType) {
-        long total = gameScoreRepository.countByGameType(gameType);
-        Double avg = gameScoreRepository.averageScoreByGameType(gameType);
-        Integer max = gameScoreRepository.maxScoreByGameType(gameType);
+    public GameStatsDto gameStats(@Argument GameType gameType) {
+        String gt = gameType.toSlug();
+        long total = gameScoreRepository.countByGameType(gt);
+        Double avg = gameScoreRepository.averageScoreByGameType(gt);
+        Integer max = gameScoreRepository.maxScoreByGameType(gt);
         return new GameStatsDto(total, avg, max, null);
     }
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public UserGameStatsDto userStats(
             @Argument Long userId,
-            @Argument String gameType) {
+            @Argument GameType gameType) {
         long total;
         Double avg;
         Integer high;
-        if (gameType == null || gameType.isBlank()) {
+        if (gameType == null) {
             total = gameScoreRepository.countByUser_Id(userId);
             avg = gameScoreRepository.averageScoreByUserId(userId);
             high = gameScoreRepository.maxScoreByUserId(userId);
         } else {
-            total = gameScoreRepository.countByUser_IdAndGameType(userId, gameType);
-            avg = gameScoreRepository.averageScoreByUserAndGameType(userId, gameType);
-            high = gameScoreRepository.maxScoreByUserAndGameType(userId, gameType);
+            String gt = gameType.toSlug();
+            total = gameScoreRepository.countByUser_IdAndGameType(userId, gt);
+            avg = gameScoreRepository.averageScoreByUserAndGameType(userId, gt);
+            high = gameScoreRepository.maxScoreByUserAndGameType(userId, gt);
         }
         return new UserGameStatsDto(total, high, avg, null);
+    }
+
+    // Connection DTOs for GraphQL mapping
+    @Data
+    public static class PageInfo {
+        private final boolean hasNextPage;
+        private final String endCursor;
+    }
+
+    @Data
+    public static class LeaderboardEdge {
+        private final LeaderboardEntryDto node;
+        private final String cursor;
+    }
+
+    @Data
+    public static class LeaderboardConnection {
+        private final List<LeaderboardEdge> edges;
+        private final PageInfo pageInfo;
     }
 }

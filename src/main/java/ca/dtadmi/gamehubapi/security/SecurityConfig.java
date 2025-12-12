@@ -61,6 +61,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/graphql",
                                 "/api/health",
                                 "/api/leaderboard",
                                 "/api/scores/**",

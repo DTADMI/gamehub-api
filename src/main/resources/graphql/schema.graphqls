@@ -1,23 +1,42 @@
 # src/main/resources/graphql/schema.graphqls
 scalar JSON
 
+"""Auth directive marker (enforced at resolver level)"""
+directive @auth on FIELD_DEFINITION
+
+enum LeaderboardScope { PERSONAL FRIENDS GLOBAL }
+enum TimeWindow { ALL_TIME YEAR MONTH WEEK DAY }
+enum GameType { SNAKE BUBBLE_POP TETRIS BREAKOUT KNITZY MEMORY CHECKERS CHESS PLATFORMER TOWER_DEFENSE }
+
+type PageInfo { hasNextPage: Boolean! endCursor: String }
+type LeaderboardEdge { node: LeaderboardEntry! cursor: String! }
+type LeaderboardConnection { edges: [LeaderboardEdge!]! pageInfo: PageInfo! }
+
 type Query {
-    gameScores(gameType: String!, limit: Int): [GameScore!]!
-    userScores(userId: ID, gameType: String, limit: Int): [GameScore!]!
-    leaderboard(gameType: String!, limit: Int): [LeaderboardEntry!]!
-    gameStats(gameType: String!): GameStats!
-    userStats(userId: ID!, gameType: String): UserGameStats!
+    gameScores(gameType: GameType!, first: Int = 100, after: String): [GameScore!]! @auth
+    userScores(userId: ID, gameType: GameType, first: Int = 20, after: String): [GameScore!]! @auth
+    leaderboard(
+        gameType: GameType!
+        scope: LeaderboardScope! = GLOBAL
+        window: TimeWindow! = WEEK
+        first: Int = 25
+        after: String
+    ): LeaderboardConnection! @auth
+    gameStats(gameType: GameType!): GameStats!
+    userStats(userId: ID!, gameType: GameType): UserGameStats! @auth
 }
 
 type Mutation {
-    submitScore(input: ScoreInput!): GameScore!
-    updateUserProfile(input: UserProfileInput!): User!
+    submitScore(input: ScoreInput!): GameScore! @auth
+    updateUserProfile(input: UserProfileInput!): User! @auth
+    createCheckout(input: CreateCheckoutInput!): CheckoutSession! @auth
+    cancelSubscription: Subscription! @auth
 }
 
 type GameScore {
     id: ID!
     user: User!
-    gameType: String!
+    gameType: GameType!
     score: Int!
     createdAt: String!
     metadata: JSON
@@ -29,6 +48,9 @@ type User {
     email: String!
     avatar: String
     stats: UserStats!
+    friends: Friends!
+    subscription: Subscription
+    premium: PremiumFeatures!
 }
 
 type UserStats {
@@ -49,7 +71,7 @@ type LeaderboardEntry {
     rank: Int!
     user: User!
     score: Int!
-    gameType: String!
+    gameType: GameType!
 }
 
 type GameStats {
@@ -67,7 +89,7 @@ type UserGameStats {
 }
 
 input ScoreInput {
-    gameType: String!
+    gameType: GameType!
     score: Int!
     metadata: JSON
 }
@@ -76,3 +98,15 @@ input UserProfileInput {
     username: String
     avatar: String
 }
+
+"""Friends graph (minimal)"""
+type FriendEdge { user: User! since: String! }
+type Friends { edges: [FriendEdge!]! count: Int! }
+
+"""Subscriptions/entitlements"""
+enum Plan { FREE PRO }
+type Subscription { id: ID! userId: ID! plan: Plan! status: String! currentPeriodEnd: String! }
+type PremiumFeatures { advancedLeaderboards: Boolean! cosmetics: Boolean! earlyAccess: Boolean! }
+
+input CreateCheckoutInput { plan: Plan!, returnUrl: String!, cancelUrl: String! }
+type CheckoutSession { id: ID!, url: String! }
