@@ -9,8 +9,11 @@ enum TimeWindow { ALL_TIME YEAR MONTH WEEK DAY }
 enum GameType { SNAKE BUBBLE_POP TETRIS BREAKOUT KNITZY MEMORY CHECKERS CHESS PLATFORMER TOWER_DEFENSE }
 
 type PageInfo { hasNextPage: Boolean! endCursor: String }
-type LeaderboardEdge { node: LeaderboardEntry! cursor: String! }
-type LeaderboardConnection { edges: [LeaderboardEdge!]! pageInfo: PageInfo! }
+# Relay-style connection naming must include the node type in the name so
+# Spring GraphQL can infer the node type correctly. Using LeaderboardEntry
+# as the node type.
+type LeaderboardEntryEdge { node: LeaderboardEntry! cursor: String! }
+type LeaderboardEntryConnection { edges: [LeaderboardEntryEdge!]! pageInfo: PageInfo! }
 
 type Query {
     gameScores(gameType: GameType!, first: Int = 100, after: String): [GameScore!]! @auth
@@ -21,7 +24,7 @@ type Query {
         window: TimeWindow! = WEEK
         first: Int = 25
         after: String
-    ): LeaderboardConnection! @auth
+    ): LeaderboardEntryConnection! @auth
     gameStats(gameType: GameType!): GameStats!
     userStats(userId: ID!, gameType: GameType): UserGameStats! @auth
 }

@@ -85,8 +85,8 @@ Firebase (optional; only if you enable Firebase auth):
 
 Cloud Run/Cloud SQL (prod):
 
-- `SPRING_DATASOURCE_URL`, `DB_USER`, `DB_PASS`, `GCP_INSTANCE_CONNECTION_NAME` (if using socket factory)
-- `SPRING_PROFILES_ACTIVE=cloud`
+- `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
+- `SPRING_PROFILES_ACTIVE=prod`
 
 ## 3) Running locally
 
@@ -118,10 +118,20 @@ Useful public endpoints:
 
 - `GET /` — welcome JSON
 - `GET /healthz` — lightweight health
+- `GET /actuator/health` — actuator health
 - `GET /api/meta` — contact links from env
 - `GET /api/features` — current feature flags
 - `GET /api/projects` — placeholder projects list
 - `GET /api/featured` — sample featured games
+
+Quick API examples:
+
+```
+curl -s http://localhost:8080/healthz
+curl -s http://localhost:8080/actuator/health
+curl -s "http://localhost:8080/api/scores?gameType=snake" | jq
+curl -s http://localhost:8080/api/scores/leaderboard | jq
+```
 
 ## 4) Running tests
 
@@ -142,14 +152,15 @@ gcloud config set project <PROJECT_ID>
 gcloud auth configure-docker <REGION>-docker.pkg.dev
 ```
 
-Build/push image:
+Build/push image (Artifact Registry):
 
 ```
-REGION=<your-region>
-PROJECT=<your-project>
+REGION=northamerica-northeast1
+PROJECT=games-portal-479600
+AR_REPO=gamehub
 SERVICE=gamehub-api
 SHA=$(git rev-parse --short HEAD)
-IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/apps/${SERVICE}:${SHA}
+IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}/${SERVICE}:${SHA}
 
 mvn -DskipTests package
 docker build -t ${IMAGE} .
@@ -163,25 +174,71 @@ gcloud run deploy ${SERVICE} \
   --image=${IMAGE} \
   --allow-unauthenticated \
   --port=8080 \
-  --set-env-vars SPRING_PROFILES_ACTIVE=cloud \
-  --set-env-vars APP_GITHUB_URL=...,APP_LINKEDIN_URL=...,APP_CONTACT_EMAIL=...
+  --set-env-vars SPRING_PROFILES_ACTIVE=prod,CORS_ALLOWED_ORIGINS=https://<frontend-domain> \
+  --set-secrets "SPRING_DATASOURCE_URL=SPRING_DATASOURCE_URL:latest,SPRING_DATASOURCE_USERNAME=SPRING_DATASOURCE_USERNAME:latest,SPRING_DATASOURCE_PASSWORD=SPRING_DATASOURCE_PASSWORD:latest"
+  
+  
+  
+  
+
+gcloud run deploy $SERVICE `
+  --region=$REGION `
+  --image=$IMAGE `
+  --allow-unauthenticated `
+  --port=8080 `
+  --add-cloudsql-instances $INSTANCE_CONNECTION_NAME `
+  --vpc-connector "gamehub-vpc-connector" `
+  --set-env-vars SPRING_PROFILES_ACTIVE=prod,CORS_ALLOWED_ORIGINS=https://<frontend-domain> `
+  --set-secrets "SPRING_DATASOURCE_URL=SPRING_DATASOURCE_URL:latest,SPRING_DATASOURCE_USERNAME=SPRING_DATASOURCE_USERNAME:latest,SPRING_DATASOURCE_PASSWORD=SPRING_DATASOURCE_PASSWORD:latest"
 ```
 
-If using Cloud SQL, either provide `SPRING_DATASOURCE_URL` and credentials, or configure the socket factory and set
-`GCP_INSTANCE_CONNECTION_NAME`.
+If using Cloud SQL with Private IP (recommended), deploy with the Cloud SQL connector and VPC:
+
+1) Ensure your Cloud SQL instance has Private IP enabled and that you have a Serverless VPC Access connector in the same
+   region.
+2) Set your Secret Manager keys for:
+    - `SPRING_DATASOURCE_URL` (e.g., `jdbc:postgresql://<PRIVATE_IP>:5432/gamesdb`)
+    - `SPRING_DATASOURCE_USERNAME`
+    - `SPRING_DATASOURCE_PASSWORD`
+3) Deploy with `--add-cloudsql-instances` using your instance connection name:
+
+```
+INSTANCE_CONNECTION_NAME=${PROJECT}:${REGION}:games-postgresql-instance
+
+gcloud run deploy ${SERVICE} \
+  --region=${REGION} \
+  --image=${IMAGE} \
+  --allow-unauthenticated \
+  --port=8080 \
+  --add-cloudsql-instances ${INSTANCE_CONNECTION_NAME} \
+  --set-env-vars SPRING_PROFILES_ACTIVE=prod,CORS_ALLOWED_ORIGINS=https://<frontend-domain> \
+  --set-secrets "SPRING_DATASOURCE_URL=SPRING_DATASOURCE_URL:latest,SPRING_DATASOURCE_USERNAME=SPRING_DATASOURCE_USERNAME:latest,SPRING_DATASOURCE_PASSWORD=SPRING_DATASOURCE_PASSWORD:latest"
+```
 
 ## 6) CI/CD (GitHub Actions)
 
-Workflow: `.github/workflows/backend-ci.yml` builds/tests, builds/pushes the image to Artifact Registry, then deploys to
-Cloud Run.
+Workflow: `.github/workflows/ci-cd.yml` builds/tests, builds/pushes the image to Artifact Registry, then deploys to
+Cloud Run (port 8080). On push to `main`, it will run automatically.
 
 Repository settings → Secrets and variables → Actions:
 
-- Secrets: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY` (JSON)
-- Variables (optional): `AR_REPO` (default `apps`), `BACKEND_SERVICE` (default `gamehub-api`), `APP_GITHUB_URL`,
-  `APP_LINKEDIN_URL`, `APP_CONTACT_EMAIL`
+- Secrets: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY` (JSON). Optional: `SECRET_FLAGS` string for extra
+  `--set-secrets` pairs.
+- Variables: `AR_REPO` (default `gamehub`), `BACKEND_SERVICE` (default `gamehub-api`), optional `FRONTEND_URL` for CORS,
+  optional `INSTANCE_CONNECTION_NAME` if using Cloud SQL connector.
 
 On push to `main`, the job deploys the latest commit.
+
+See also: `.junie/guidelines.md` for a newcomer-friendly end‑to‑end guide.
+
+### 6.1) Optional: Push images to Docker Hub
+
+If you also want to publish images to Docker Hub, add repository secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+The workflow will push tags `${DOCKERHUB_USERNAME}/${BACKEND_SERVICE}:<SHA>` and `:latest` when these are present.
 
 ## 7) Public vs gated routes and feature flags
 
@@ -205,6 +262,33 @@ Feature flags:
 - Testcontainers slow: pre-pull `postgres:15-alpine`
 - Cloud Run deploy fails: check Artifact Registry permissions and `gcloud auth configure-docker`
 - Database connection: confirm `SPRING_DATASOURCE_URL` or `DB_*` envs; in `dev` profile H2 is used instead
+
+## 9) Cloud SQL connectivity: Private IP vs Public IP with Proxy
+
+You have two mainstream options to connect Cloud Run to Cloud SQL Postgres:
+
+- Private IP (recommended for production):
+    - Pros: traffic stays on Google private network; lowest attack surface; simpler runtime (no sidecar proxy needed);
+      IAM-based access possible; predictable egress costs within VPC.
+    - Cons: requires setting up a VPC connector and enabling private service access; a bit more initial setup; needs
+      instance private IP.
+    - Changes: provision a Serverless VPC Access connector; enable Private IP on the Cloud SQL instance; deploy with
+      `--add-cloudsql-instances ${PROJECT}:${REGION}:${INSTANCE}` and use a JDBC URL pointing to the private IP. Keep
+      secrets in Secret Manager and map them at deploy time.
+
+- Public IP with Cloud SQL Auth Proxy (or direct SSL):
+    - Pros: fastest to get running; no VPC connector required; strong auth using IAM DB Authentication with the proxy;
+      easy to run locally and in CI.
+    - Cons: runs an extra proxy process in your container (adds memory/CPU and a point of failure); egress goes over
+      public endpoints (still encrypted/authenticated); potential cold-start impact.
+    - Changes: keep the `cloud_sql_proxy` binary in the image (this repo provides it) and set
+      `GCP_INSTANCE_CONNECTION_NAME`. The `startup.sh` starts the proxy and sets `SPRING_DATASOURCE_URL` to
+      `jdbc:postgresql://localhost:5432/${DB_NAME}`. Provide DB user/password via Secret Manager. (Note: we recommend
+      Private IP for prod.)
+
+Recommendation: Use Private IP for production (security and cost), and allow Public IP + Proxy for local experiments or
+as a transitional setup. The included CI workflow supports adding `--add-cloudsql-instances` when you define
+`INSTANCE_CONNECTION_NAME` as a repo variable.
 
 —
 
