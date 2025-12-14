@@ -30,19 +30,20 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.util.Map;
 
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "features.realtime_enabled", havingValue = "true", matchIfMissing = true)
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
-    private final org.springframework.messaging.support.ChannelInterceptor stompRateLimiter;
+    private final org.springframework.beans.factory.ObjectProvider<org.springframework.messaging.support.ChannelInterceptor> stompRateLimiterProvider;
 
     public WebSocketConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService,
                            @org.springframework.beans.factory.annotation.Qualifier("stompRateLimiterInterceptor")
-                           org.springframework.messaging.support.ChannelInterceptor stompRateLimiter) {
+                           org.springframework.beans.factory.ObjectProvider<org.springframework.messaging.support.ChannelInterceptor> stompRateLimiterProvider) {
         this.tokenProvider = tokenProvider;
         this.userDetailsService = userDetailsService;
-        this.stompRateLimiter = stompRateLimiter;
+        this.stompRateLimiterProvider = stompRateLimiterProvider;
     }
 
     @Override
@@ -82,7 +83,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(channelInterceptor(), stompRateLimiter);
+        var rl = stompRateLimiterProvider.getIfAvailable();
+        if (rl != null) {
+            registration.interceptors(channelInterceptor(), rl);
+        } else {
+            registration.interceptors(channelInterceptor());
+        }
     }
 
     @Bean
@@ -119,9 +125,5 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         };
     }
 
-    @Bean
-    public ChannelInterceptor stompRateLimiterInterceptor(org.springframework.data.redis.core.StringRedisTemplate redis,
-                                                          org.springframework.core.env.Environment env) {
-        return new ca.dtadmi.gamehubapi.interceptor.StompRateLimitInterceptor(redis, env);
-    }
+    // STOMP rate limiter bean moved to StompInterceptorsConfig to avoid circular reference
 }

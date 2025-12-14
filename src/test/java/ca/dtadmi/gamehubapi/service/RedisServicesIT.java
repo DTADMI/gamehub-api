@@ -16,6 +16,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@org.springframework.test.context.TestPropertySource(properties = {
+        "features.kv.redis_enabled=true"
+})
 @Testcontainers
 class RedisServicesIT {
 

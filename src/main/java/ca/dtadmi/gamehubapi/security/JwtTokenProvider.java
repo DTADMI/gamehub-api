@@ -3,11 +3,14 @@ package ca.dtadmi.gamehubapi.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.SecretKey;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
@@ -15,10 +18,10 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwtSecret}")
+    @Value("${app.jwtSecret:dev-secret}")
     private String jwtSecret;
 
-    @Value("${app.jwtExpirationInMs}")
+    @Value("${app.jwtExpirationInMs:86400000}")
     private int jwtExpirationInMs;
 
     private byte[] signingKey() {
@@ -42,20 +45,22 @@ public class JwtTokenProvider {
         }
     }
 
+    private SecretKey key() {
+        return Keys.hmacShaKeyFor(signingKey());
+    }
+
     public String generateToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
-        byte[] key = signingKey();
         // After derivation above, key is guaranteed >= 32 bytes; sign with HS256 by default.
-        SignatureAlgorithm alg = SignatureAlgorithm.HS256;
-
+        SecretKey key = key();
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
-                .signWith(alg, key)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -68,14 +73,12 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
-        byte[] key = signingKey();
-        SignatureAlgorithm alg = SignatureAlgorithm.HS256;
-
+        SecretKey key = key();
         return Jwts.builder()
                 .setSubject(subject)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(alg, key)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -84,8 +87,9 @@ public class JwtTokenProvider {
     }
 
     public String getUsernameFromJWT(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(signingKey())
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key())
+                .build()
                 .parseClaimsJws(token)
                 .getBody();
 
@@ -94,7 +98,7 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(signingKey()).parseClaimsJws(authToken);
+            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
             return true;
         } catch (io.jsonwebtoken.io.DecodingException ex) {
             // token or secret not base64/invalid structure
