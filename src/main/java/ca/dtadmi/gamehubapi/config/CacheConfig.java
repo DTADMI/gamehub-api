@@ -13,8 +13,9 @@ public class CacheConfig {
 
     @Bean
     public Caffeine<Object, Object> caffeineConfig() {
+        // Keep leaderboard snapshots very fresh to balance UX and correctness
         return Caffeine.newBuilder()
-                .expireAfterWrite(15, TimeUnit.SECONDS)
+                .expireAfterWrite(10, TimeUnit.SECONDS)
                 .maximumSize(10_000);
     }
 
@@ -22,6 +23,10 @@ public class CacheConfig {
     public CacheManager cacheManager(Caffeine<Object, Object> caffeine) {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCaffeine(caffeine);
+        // Explicit cache names improve clarity and avoid accidental cache creation
+        cacheManager.setCacheNames(java.util.List.of(
+                "lb_snake_global"
+        ));
         return cacheManager;
     }
 }

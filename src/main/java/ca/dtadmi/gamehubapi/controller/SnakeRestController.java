@@ -3,6 +3,7 @@ package ca.dtadmi.gamehubapi.controller;
 import ca.dtadmi.gamehubapi.realtime.dto.RealtimeDtos.Entry;
 import ca.dtadmi.gamehubapi.service.LeaderboardService;
 import ca.dtadmi.gamehubapi.service.RunIdService;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -59,6 +60,7 @@ public class SnakeRestController {
      * Requires a valid runId issued from /run/start to mitigate trivial replay/forgery.
      */
     @PostMapping("/score")
+    @CacheEvict(value = "lb_snake_global", allEntries = true)
     public ResponseEntity<Map<String, Object>> submitScore(
             @AuthenticationPrincipal UserDetails principal,
             @RequestBody ScoreSubmit body
