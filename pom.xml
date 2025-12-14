@@ -404,6 +404,11 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

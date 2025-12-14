@@ -26,6 +26,8 @@ Table of contents
 6. CI/CD with GitHub Actions
 7. Public vs gated routes and feature flags
 8. Troubleshooting
+9. Cloud SQL connectivity (Private IP vs Proxy)
+10. STOMP rate limiting (Realtime WebSocket)
 
 —
 
@@ -200,7 +202,9 @@ If using Cloud SQL with Private IP (recommended), deploy with the Cloud SQL conn
     - `SPRING_DATASOURCE_URL` (e.g., `jdbc:postgresql://<PRIVATE_IP>:5432/gamesdb`)
     - `SPRING_DATASOURCE_USERNAME`
     - `SPRING_DATASOURCE_PASSWORD`
-3) Deploy with `--add-cloudsql-instances` using your instance connection name:
+3) Deploy with `--add-cloudsql-instances` using your instance connection name and specify your Serverless VPC Access
+   connector (recommended when using Private IP). Ensure your Secret Manager value for `SPRING_DATASOURCE_URL` is the
+   plain Private IP JDBC URL (no socket factory params), for example: `jdbc:postgresql://10.80.0.3:5432/gamesdb`.
 
 ```
 INSTANCE_CONNECTION_NAME=${PROJECT}:${REGION}:games-postgresql-instance
@@ -211,6 +215,7 @@ gcloud run deploy ${SERVICE} \
   --allow-unauthenticated \
   --port=8080 \
   --add-cloudsql-instances ${INSTANCE_CONNECTION_NAME} \
+  --vpc-connector gamehub-vpc-connector \
   --set-env-vars SPRING_PROFILES_ACTIVE=prod,CORS_ALLOWED_ORIGINS=https://<frontend-domain> \
   --set-secrets "SPRING_DATASOURCE_URL=SPRING_DATASOURCE_URL:latest,SPRING_DATASOURCE_USERNAME=SPRING_DATASOURCE_USERNAME:latest,SPRING_DATASOURCE_PASSWORD=SPRING_DATASOURCE_PASSWORD:latest"
 ```
@@ -289,6 +294,73 @@ You have two mainstream options to connect Cloud Run to Cloud SQL Postgres:
 Recommendation: Use Private IP for production (security and cost), and allow Public IP + Proxy for local experiments or
 as a transitional setup. The included CI workflow supports adding `--add-cloudsql-instances` when you define
 `INSTANCE_CONNECTION_NAME` as a repo variable.
+
+## 10) STOMP rate limiting (Realtime WebSocket)
+
+This backend includes a Redis-backed STOMP rate limiter to protect realtime channels (/ws) from abuse and to keep
+Cloud Run instances stable under load.
+
+- What it does: caps SEND frames per minute per identity; identity is resolved in this order
+  (userId → sessionId → x-forwarded-for IP → anon).
+- Limits (defaults):
+    - Authenticated users: 300 messages/min
+    - Guests: 120 messages/min
+    - Messages over the limit are dropped (not forwarded to handlers); clients should back off automatically.
+
+Configuration (application.yml / env):
+
+```
+stomp.ratelimit.user.perMinute: 300   # env: STOMP_USER_MSGS_PER_MIN
+stomp.ratelimit.guest.perMinute: 120  # env: STOMP_GUEST_MSGS_PER_MIN
+```
+
+Why Redis-backed (recommended for Cloud Run):
+
+- Pros:
+    - Consistent limits across multiple instances (Cloud Run scales out across pods).
+    - Resilient to instance restarts; simple INCR/EXPIRE windowing.
+    - Stateless app instances; no sticky sessions needed.
+- Cons:
+    - Requires Redis (Memorystore) connectivity and a VPC connector in prod.
+    - Slightly more latency per SEND compared to in-memory counters.
+
+Alternative: in-memory/Caffeine counters
+
+- Pros: zero external dependency; ultra-low latency; works offline for dev.
+- Cons: per-instance only (each instance maintains its own counters). Under Cloud Run autoscaling, a user could bypass
+  limits by spreading messages across instances via load balancing.
+
+Decision for this project: Redis-backed is the default in production to ensure consistent throttling as Cloud Run
+scales horizontally. The code fails open if Redis is unavailable (no throttling) to prioritize app availability during
+transient outages — monitor logs/metrics and set alerts accordingly.
+
+Tuning & ops tips:
+
+- Use stricter guest limits; authenticated users can be more generous.
+- Set explicit `X-Forwarded-For` on your WS proxy if you need IP-based identities for guests.
+- Observe message rate counters in logs/metrics and adjust thresholds to balance UX vs protection.
+
+Cloud Run YAML reference
+
+- A declarative manifest is provided at `infra/cloudrun/backend.yaml`. You can deploy it with:
+
+```
+REGION=northamerica-northeast1
+PROJECT=games-portal-479600
+SHA=$(git rev-parse --short HEAD)
+gcloud run services replace infra/cloudrun/backend.yaml \
+  --region=$REGION --project=$PROJECT
+```
+
+GitHub Actions (CI/CD)
+
+- The workflow `.github/workflows/ci-cd.yml` runs tests, builds a container, pushes to Artifact Registry, and deploys to
+  Cloud Run by image when GCP secrets are present.
+
+Swagger/OpenAPI
+
+- No new endpoints were introduced for throttling; behavior is applied at the STOMP channel layer. REST endpoints are
+  unchanged. Swagger still documents the public REST routes.
 
 —
 

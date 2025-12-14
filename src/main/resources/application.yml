@@ -31,10 +31,21 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 app:
   jwtSecret: ${APP_JWT_SECRET:dev-secret}
   jwtExpirationInMs: ${APP_JWT_EXPIRATION_MS:86400000} # 1 day
+
+# STOMP rate limiting (per minute)
+stomp:
+  ratelimit:
+    user:
+      perMinute: ${STOMP_USER_MSGS_PER_MIN:300}
+    guest:
+      perMinute: ${STOMP_GUEST_MSGS_PER_MIN:120}
 
 # Feature flags
 features:

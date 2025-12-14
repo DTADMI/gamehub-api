@@ -35,10 +35,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final org.springframework.messaging.support.ChannelInterceptor stompRateLimiter;
 
-    public WebSocketConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService) {
+    public WebSocketConfig(JwtTokenProvider tokenProvider, CustomUserDetailsService userDetailsService,
+                           @org.springframework.beans.factory.annotation.Qualifier("stompRateLimiterInterceptor")
+                           org.springframework.messaging.support.ChannelInterceptor stompRateLimiter) {
         this.tokenProvider = tokenProvider;
         this.userDetailsService = userDetailsService;
+        this.stompRateLimiter = stompRateLimiter;
     }
 
     @Override
@@ -78,7 +82,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(channelInterceptor());
+        registration.interceptors(channelInterceptor(), stompRateLimiter);
     }
 
     @Bean
@@ -113,5 +117,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 return message;
             }
         };
+    }
+
+    @Bean
+    public ChannelInterceptor stompRateLimiterInterceptor(org.springframework.data.redis.core.StringRedisTemplate redis,
+                                                          org.springframework.core.env.Environment env) {
+        return new ca.dtadmi.gamehubapi.interceptor.StompRateLimitInterceptor(redis, env);
     }
 }
