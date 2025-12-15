@@ -64,6 +64,7 @@ public class SecurityConfig {
                                 "/graphql",
                                 "/api/health",
                                 "/api/leaderboard",
+                                "/api/scores",
                                 "/api/scores/**",
                                 "/api/stats/**",
                                 "/healthz",

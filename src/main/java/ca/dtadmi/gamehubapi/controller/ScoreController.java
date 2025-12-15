@@ -60,9 +60,9 @@ public class ScoreController {
         });
 
         // Anti-abuse basic validation (caps per game, non-negative)
-        scoreValidationService.validateOrThrow(request.gameType(), request.score());
+        scoreValidationService.validateOrThrow(request.getGameType(), request.getScore());
 
-        GameScore savedScore = gameService.saveScore(user, request.gameType(), request.score());
+        GameScore savedScore = gameService.saveScore(user, request.getGameType(), request.getScore());
         return ResponseEntity.status(HttpStatus.CREATED).body(savedScore);
     }
 

@@ -7,7 +7,6 @@ import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.security.CustomUserDetailsService;
 import ca.dtadmi.gamehubapi.security.JwtTokenProvider;
 import ca.dtadmi.gamehubapi.service.RefreshTokenService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -61,24 +60,28 @@ public class AuthController {
      * Low priority migration: clients should gradually switch to /signin; /login remains available.
      */
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUserSignin(@Valid @RequestBody LoginRequest loginRequest) {
-        return authenticateUser(loginRequest);
+    public ResponseEntity<?> authenticateUserSignin(@RequestBody(required = false) Map<String, Object> loginRequest,
+                                                    jakarta.servlet.http.HttpServletRequest request) {
+        return authenticateUser(loginRequest, request);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@RequestBody(required = false) Map<String, Object> loginRequest,
+                                              jakarta.servlet.http.HttpServletRequest request) {
         try {
+            String email = firstNonBlank(loginRequest, request, "email");
+            String password = firstNonBlank(loginRequest, request, "password");
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
-                            loginRequest.getPassword()
+                            email,
+                            password
                     )
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             // Ensure JWT subject is the user's email for consistent identity across services
             String accessToken;
-            Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
+            Optional<User> userOpt = userRepository.findByEmail(email);
             if (userOpt.isEmpty()) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
             }
@@ -104,8 +107,13 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signUpRequest) {
-        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+    public ResponseEntity<?> registerUser(@RequestBody(required = false) Map<String, Object> signUpRequest,
+                                          jakarta.servlet.http.HttpServletRequest request) {
+        String email = firstNonBlank(signUpRequest, request, "email");
+        String username = firstNonBlank(signUpRequest, request, "username");
+        String password = firstNonBlank(signUpRequest, request, "password");
+
+        if (userRepository.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", 400,
                     "error", "Bad Request",
@@ -114,9 +122,9 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername(signUpRequest.getUsername());
-        user.setEmail(signUpRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
         user.getRoles().add("ROLE_USER");
 
         userRepository.save(user);
@@ -138,11 +146,13 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
-        if (req == null || req.getRefreshToken() == null || req.getRefreshToken().isBlank()) {
+    public ResponseEntity<?> refresh(@RequestBody(required = false) Map<String, Object> req,
+                                     jakarta.servlet.http.HttpServletRequest request) {
+        String token = firstNonBlank(req, request, "refreshToken");
+        if (token == null || token.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "refreshToken required"));
         }
-        Optional<RefreshToken> valid = refreshTokenService.findValid(req.getRefreshToken());
+        Optional<RefreshToken> valid = refreshTokenService.findValid(token);
         if (valid.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "invalid or expired refresh token"));
         }
@@ -158,6 +168,19 @@ public class AuthController {
         response.put("tokenType", "Bearer");
         response.put("expiresIn", jwtExpirationInMs);
         return ResponseEntity.ok(response);
+    }
+
+    private String firstNonBlank(Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request, String key) {
+        String fromBody = null;
+        if (body != null && body.containsKey(key)) {
+            Object v = body.get(key);
+            if (v != null) {
+                fromBody = String.valueOf(v);
+            }
+        }
+        if (fromBody != null && !fromBody.isBlank()) return fromBody;
+        String fromParam = request.getParameter(key);
+        return (fromParam == null || fromParam.isBlank()) ? null : fromParam;
     }
 
     @GetMapping("/me")
@@ -222,7 +245,7 @@ class SignUpRequest {
     private String email;
 
     @NotBlank
-    @Size(min = 6, max = 200)
+    @Size(min = 4, max = 200)
     private String password;
 
     public String getUsername() {

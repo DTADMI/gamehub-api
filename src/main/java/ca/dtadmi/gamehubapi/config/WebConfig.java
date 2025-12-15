@@ -18,12 +18,29 @@ public class WebConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOrigins(parseOrigins(allowedOrigins))
+                String[] origins = parseOrigins(allowedOrigins);
+                boolean hasWildcard = false;
+                for (String o : origins) {
+                    if ("*".equals(o)) {
+                        hasWildcard = true;
+                        break;
+                    }
+                }
+
+                var mapping = registry.addMapping("/**")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(true)
                         .maxAge(3600L);
+
+                if (hasWildcard) {
+                    // When credentials are allowed, Spring forbids allowedOrigins("*").
+                    // Use allowedOriginPatterns("*") so the actual Origin gets reflected.
+                    mapping.allowedOriginPatterns("*")
+                            .allowCredentials(true);
+                } else {
+                    mapping.allowedOrigins(origins)
+                            .allowCredentials(true);
+                }
             }
         };
     }
