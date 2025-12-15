@@ -3,7 +3,7 @@ version: "3.8"
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: games_postgres
+    container_name: gamehub_postgres
     environment:
       POSTGRES_DB: gamesdb
       POSTGRES_USER: postgres
@@ -20,7 +20,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: games_pgadmin
+    container_name: gamehub_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -32,7 +32,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: games_redis
+    container_name: gamehub_redis
     ports:
       - "6379:6379"
     volumes:
@@ -118,8 +118,6 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-    depends_on:
-      - backend
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:9090/-/healthy" ]
       interval: 30s

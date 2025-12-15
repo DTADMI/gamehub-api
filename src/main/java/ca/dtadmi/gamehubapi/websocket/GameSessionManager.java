@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "features.realtime_enabled", havingValue = "true", matchIfMissing = true)
 public class GameSessionManager {
     private static final Logger logger = LoggerFactory.getLogger(GameSessionManager.class);
 

@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Validated
 @Controller
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "features.realtime_enabled", havingValue = "true", matchIfMissing = true)
 public class SnakeRealtimeController {
 
     private final SimpMessagingTemplate broker;

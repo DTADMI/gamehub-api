@@ -4,10 +4,14 @@ package ca.dtadmi.gamehubapi.config;
 import ca.dtadmi.gamehubapi.model.User;
 import ca.dtadmi.gamehubapi.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("!test")
+@ConditionalOnProperty(name = "app.data.init.enabled", havingValue = "true", matchIfMissing = true)
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
