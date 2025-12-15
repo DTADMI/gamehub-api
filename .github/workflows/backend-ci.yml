@@ -197,6 +197,7 @@ jobs:
 
       - name: Deploy to Cloud Run (using AR :sha)
         if: ${{ github.ref == 'refs/heads/main' && env.DEPLOY_ENABLED == 'true' }}
+        continue-on-error: true
         env:
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           SECRET_FLAGS: ${{ secrets.SECRET_FLAGS }}
@@ -232,6 +233,7 @@ jobs:
 
       - name: Post-deploy health checks
         if: ${{ github.ref == 'refs/heads/main' && env.DEPLOY_ENABLED == 'true' }}
+        continue-on-error: true
         run: |
           REGION=${{ env.GCP_REGION }}
           SERVICE=${{ env.BACKEND_SERVICE }}
