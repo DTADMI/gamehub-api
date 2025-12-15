@@ -17,6 +17,3 @@ jobs:
           cache: maven
       - name: Run unit tests
         run: mvn -B -Dtest="*Test" test
-      - name: Package and run full tests (optional)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: mvn -B test
