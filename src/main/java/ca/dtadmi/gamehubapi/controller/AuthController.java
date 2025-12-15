@@ -7,6 +7,10 @@ import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.security.CustomUserDetailsService;
 import ca.dtadmi.gamehubapi.security.JwtTokenProvider;
 import ca.dtadmi.gamehubapi.service.RefreshTokenService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -57,12 +61,12 @@ public class AuthController {
      * Low priority migration: clients should gradually switch to /signin; /login remains available.
      */
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUserSignin(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUserSignin(@Valid @RequestBody LoginRequest loginRequest) {
         return authenticateUser(loginRequest);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -100,9 +104,13 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody SignUpRequest signUpRequest) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signUpRequest) {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body("Email is already taken!");
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", 400,
+                    "error", "Bad Request",
+                    "message", "Email is already taken"
+            ));
         }
 
         User user = new User();
@@ -130,7 +138,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody RefreshRequest req) {
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
         if (req == null || req.getRefreshToken() == null || req.getRefreshToken().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "refreshToken required"));
         }
@@ -180,7 +188,11 @@ public class AuthController {
 }
 
 class LoginRequest {
+    @NotBlank
+    @Email
     private String email;
+
+    @NotBlank
     private String password;
 
     public String getEmail() {
@@ -201,8 +213,16 @@ class LoginRequest {
 }
 
 class SignUpRequest {
+    @NotBlank
+    @Size(min = 2, max = 100)
     private String username;
+
+    @NotBlank
+    @Email
     private String email;
+
+    @NotBlank
+    @Size(min = 6, max = 200)
     private String password;
 
     public String getUsername() {
@@ -231,6 +251,7 @@ class SignUpRequest {
 }
 
 class RefreshRequest {
+    @NotBlank
     private String refreshToken;
 
     public String getRefreshToken() {

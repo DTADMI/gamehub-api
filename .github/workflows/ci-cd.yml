@@ -1,8 +1,7 @@
 name: "CI/CD — Backend: test, build-once, push (AR+Hub), deploy"
 
 on:
-  push:
-    branches: [ main ]
+  # Disabled push trigger to avoid duplicate runs; keep manual trigger only
   workflow_dispatch:
 
 permissions:
