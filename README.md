@@ -222,28 +222,105 @@ gcloud run deploy ${SERVICE} \
 
 ## 6) CI/CD (GitHub Actions)
 
-Workflow: `.github/workflows/ci-cd.yml` builds/tests, builds/pushes the image to Artifact Registry, then deploys to
-Cloud Run (port 8080). On push to `main`, it will run automatically.
+This repo uses exactly two workflows (consolidated):
 
-Repository settings → Secrets and variables → Actions:
+- `.github/workflows/backend-tests.yml`
+    - Trigger: pull_request (to `main`) and manual `workflow_dispatch`
+    - Action: unit tests only (`mvn -B -Dtest="*Test" test`) for fast PR feedback
 
-- Secrets: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY` (JSON). Optional: `SECRET_FLAGS` string for extra
-  `--set-secrets` pairs.
-- Variables: `AR_REPO` (default `gamehub`), `BACKEND_SERVICE` (default `gamehub-api`), optional `FRONTEND_URL` for CORS,
-  optional `INSTANCE_CONNECTION_NAME` if using Cloud SQL connector.
+- `.github/workflows/backend-ci.yml`
+    - Trigger: push to `main` and `workflow_dispatch`
+    - Jobs (in order):
+        1) `test-unit` — unit tests only
+        2) `test-e2e` — full suite (integration/E2E); optional/allow-fail by design
+        3) `build-local-and-tag-images` — build Docker image once and save as artifact
+        4) `push-and-deploy-to-cloudrun` — authenticate to GCP, retag and push to Artifact Registry, deploy to Cloud Run
+            - Deploy is gated by repo var `DEPLOY_ENABLED` and only runs on branch `main`
+        5) `push-to-dockerhub` — optional fallback if AR/GCP is unavailable and Docker Hub creds exist
 
-On push to `main`, the job deploys the latest commit.
+Required repository configuration (Settings → Secrets and variables → Actions):
 
-See also: `.junie/guidelines.md` for a newcomer-friendly end‑to‑end guide.
+- Secrets:
+    - `GCP_PROJECT_ID` — your GCP project ID
+    - `GCP_REGION` — e.g., `northamerica-northeast1`
+    - One authentication method (pick one):
+        - Workload Identity Federation (recommended):
+            - `GCP_WORKLOAD_IDENTITY_PROVIDER` — full resource name of the provider
+            - `GCP_SERVICE_ACCOUNT` — deployer service account email (e.g.,
+              `gha-deploy@<project>.iam.gserviceaccount.com`)
+        - Or Service Account key (fallback):
+            - `GCP_SA_KEY` — JSON key for the deployer SA
+    - Optional: `DOCKERHUB_TOKEN`, `SECRET_FLAGS` (string passed to `gcloud run deploy --set-secrets "..."`)
 
-### 6.1) Optional: Push images to Docker Hub
+- Variables:
+    - `AR_REPO` (default `gamehub`)
+    - `BACKEND_SERVICE` (default `gamehub-api`)
+    - `FRONTEND_URL` for CORS (e.g., `https://<frontend-domain>` or `http://localhost:3000`)
+    - Optional: `INSTANCE_CONNECTION_NAME` (adds `--add-cloudsql-instances`)
+    - Optional: `VPC_CONNECTOR` (adds `--vpc-connector`)
+    - `DEPLOY_ENABLED` — set to `true` to allow deploy to run on `main` (defaults to `false`)
 
-If you also want to publish images to Docker Hub, add repository secrets:
+### 6.1) Enable deploys safely (permissions + toggle)
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+1) Toggle: set repo variable `DEPLOY_ENABLED=true`.
 
-The workflow will push tags `${DOCKERHUB_USERNAME}/${BACKEND_SERVICE}:<SHA>` and `:latest` when these are present.
+2) Grant IAM so the GitHub identity can deploy and can act-as the runtime service account used by Cloud Run
+   (e.g., `gamehub-api-sa@<project>.iam.gserviceaccount.com`). Grant the following to your deployer principal
+   (WIF or SA):
+
+- On the runtime service account (Cloud Run service account):
+    - Role: `roles/iam.serviceAccountUser` (provides `iam.serviceaccounts.actAs`)
+
+- At project (or narrower scope):
+    - Role: `roles/run.admin` (or a narrower deploy role)
+    - Role: `roles/artifactregistry.writer` (to push images)
+
+Sample commands (replace placeholders):
+
+```
+PROJECT_ID=<your-project>
+REGION=northamerica-northeast1
+RUNTIME_SA=gamehub-api-sa@${PROJECT_ID}.iam.gserviceaccount.com
+# If using Workload Identity Federation
+DEPLOY_SA=gha-deploy@${PROJECT_ID}.iam.gserviceaccount.com
+
+# Allow deploy principal to actAs the runtime SA used by Cloud Run
+gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="roles/iam.serviceAccountUser"
+
+# Grant deploy permissions (project-level shown here)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="roles/artifactregistry.writer"
+
+# If you use WIF directly without a GCP SA, bind your workload identity pool principal instead:
+# PRINCIPAL="principalSet://iam.googleapis.com/projects/<NUMERIC_PROJECT_ID>/locations/global/workloadIdentityPools/<POOL_ID>/attribute.repository/<owner>/<repo>"
+# gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" --member="$PRINCIPAL" --role="roles/iam.serviceAccountUser"
+```
+
+After a successful deploy, the workflow runs smoke checks:
+
+```
+SERVICE=${{ vars.BACKEND_SERVICE }}
+REGION=${{ secrets.GCP_REGION }}
+URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+curl -fsS "$URL/healthz"; echo
+curl -fsS "$URL/actuator/health"; echo
+```
+
+### 6.2) Optional: Push images to Docker Hub
+
+If you also want to publish images to Docker Hub, set repository variables/secrets:
+
+- Vars: `DOCKERHUB_USERNAME` (and optionally `DOCKERHUB_REPO`)
+- Secret: `DOCKERHUB_TOKEN`
+
+The pipeline will push `${DOCKERHUB_USERNAME}/${BACKEND_SERVICE}:<SHA>` and `:latest` when present.
 
 ## 7) Public vs gated routes and feature flags
 

@@ -37,7 +37,8 @@ jobs:
   test-e2e:
     name: Backend E2E/API smoke
     runs-on: ubuntu-latest
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    # Make E2E optional on all triggers (including main) per request
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
