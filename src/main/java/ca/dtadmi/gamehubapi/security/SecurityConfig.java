@@ -68,6 +68,7 @@ public class SecurityConfig {
                                 "/api/scores/**",
                                 "/api/stats/**",
                                 "/healthz",
+                                "/favicon.ico",
                                 "/",
                                 "/api/featured",
                                 "/api/projects/**",
