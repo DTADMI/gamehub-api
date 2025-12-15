@@ -1,6 +1,5 @@
 features:
   realtime_enabled: false
-
 app:
   data:
     init:
