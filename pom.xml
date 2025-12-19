@@ -33,13 +33,17 @@
         <testcontainers.version>1.19.7</testcontainers.version>
         <spring-boot.version>3.2.0</spring-boot.version>
         <!-- Align ANTLR tool and runtime to avoid version mismatch warnings -->
-        <antlr4.version>4.10.1</antlr4.version>
+        <antlr4.version>4.13.2</antlr4.version>
         <!-- Mockito configuration for running with Java agent in tests -->
-        <mockito.version>5.8.0</mockito.version>
+        <mockito.version>5.21.0</mockito.version>
         <!-- Error Prone Annotations version -->
-        <error.prone.annotations.version>2.24.1</error.prone.annotations.version>
+        <error.prone.annotations.version>2.45.0</error.prone.annotations.version>
         <!-- Testcontainers BOM version -->
-        <testcontainers-bom.version>1.19.7</testcontainers-bom.version>
+        <testcontainers-bom.version>2.0.2</testcontainers-bom.version>
+        <google.api-client.version>2.8.1</google.api-client.version>
+        <google.http-client.version>2.0.2</google.http-client.version>
+        <google.auth.version>1.41.0</google.auth.version>
+        <lombok.version>1.18.42</lombok.version>
     </properties>
 
     <!-- Centralized dependency alignment to satisfy Enforcer's RequireUpperBoundDeps and
@@ -51,7 +55,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.46.0</version>
+                <version>26.73.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -63,52 +67,52 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>4.32.0</version>
+                <version>4.33.2</version>
             </dependency>
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>33.4.8-jre</version>
+                <version>33.5.0-jre</version>
             </dependency>
             <dependency>
                 <groupId>com.google.api-client</groupId>
                 <artifactId>google-api-client</artifactId>
-                <version>2.8.0</version>
+                <version>${google.api-client.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.api-client</groupId>
                 <artifactId>google-api-client-gson</artifactId>
-                <version>2.8.0</version>
+                <version>${google.api-client.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.http-client</groupId>
                 <artifactId>google-http-client</artifactId>
-                <version>2.0.1</version>
+                <version>${google.http-client.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.http-client</groupId>
                 <artifactId>google-http-client-gson</artifactId>
-                <version>2.0.1</version>
+                <version>${google.http-client.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.http-client</groupId>
                 <artifactId>google-http-client-apache-v2</artifactId>
-                <version>2.0.1</version>
+                <version>${google.http-client.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-credentials</artifactId>
-                <version>1.37.1</version>
+                <version>${google.auth.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
-                <version>1.37.1</version>
+                <version>${google.auth.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.api</groupId>
                 <artifactId>gax</artifactId>
-                <version>2.69.0</version>
+                <version>2.72.2</version>
             </dependency>
             <dependency>
                 <groupId>com.google.oauth-client</groupId>
@@ -118,22 +122,29 @@
             <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
-                <version>2.41.0</version>
+                <version>${error.prone.annotations.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java-util</artifactId>
-                <version>4.32.0</version>
+                <version>4.33.2</version>
             </dependency>
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.12.1</version>
+                <version>2.13.2</version>
             </dependency>
             <dependency>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>animal-sniffer-annotations</artifactId>
-                <version>1.24</version>
+                <version>1.26</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -145,13 +156,29 @@
          ad-hoc version properties. -->
 
     <dependencies>
+        <!-- OAuth2 Client for social login -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-client</artifactId>
+        </dependency>
         <!-- OpenAPI/Swagger UI for REST documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
+            <version>3.0.0</version>
         </dependency>
         <!-- Database: use Postgres at runtime; keep H2 only for tests below to avoid duplicate declarations -->
+
+        <!-- Spring Boot Auto Configuration -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
 
         <!-- Spring Boot Starters -->
         <dependency>
@@ -196,19 +223,19 @@
         <dependency>
             <groupId>com.google.cloud.sql</groupId>
             <artifactId>postgres-socket-factory</artifactId>
-            <version>1.27.0</version>
+            <version>1.27.1</version>
         </dependency>
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-secretmanager</artifactId>
-            <version>2.43.0</version>
+            <version>2.81.0</version>
         </dependency>
 
-        <!-- In-memory DB for tests when Docker is unavailable -->
+        <!-- In-memory H2 Database for development and testing -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Redis -->
@@ -273,6 +300,7 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
@@ -362,7 +390,7 @@
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
-            <version>9.3.0</version>
+            <version>9.7.0</version>
         </dependency>
 
         <!-- Google Auth (direct usage in FirebaseConfig) -->
@@ -374,12 +402,12 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.12.1</version>
+            <version>2.13.2</version>
         </dependency>
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <version>1.17.1</version>
+            <version>1.20.0</version>
         </dependency>
 
         <dependency>
@@ -393,7 +421,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.3.1</version>
+            <version>5.5.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -417,7 +445,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.1</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -425,7 +453,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.34</version>
+                            <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
@@ -434,7 +462,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <id>enforce-deps</id>
@@ -447,7 +475,7 @@
                                     <version>3.9.0</version>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
-                                    <version>17</version>
+                                    <version>21</version>
                                 </requireJavaVersion>
                                 <!-- Temporarily disabled to bypass dependency conflicts -->
                                 <!-- <requireUpperBoundDeps/> -->
@@ -461,6 +489,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
                 <configuration>
                     <excludes>
                         <exclude>
@@ -475,7 +504,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
+                <version>3.5.4</version>
                 <configuration>
                     <argLine>
                         -Djdk.attach.allowAttachSelf=true
@@ -515,11 +544,6 @@
         <profile>
             <id>dev</id>
             <dependencies>
-                <dependency>
-                    <groupId>com.h2database</groupId>
-                    <artifactId>h2</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
             </dependencies>
         </profile>
         <!-- Run OWASP Dependency-Check only when explicitly requested: mvn -U clean verify -Powasp -->

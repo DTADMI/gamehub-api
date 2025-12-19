@@ -51,7 +51,11 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           JwtAuthenticationFilter jwtAuthFilter,
+                                           ca.dtadmi.gamehubapi.security.oauth.CustomOAuth2UserService oAuth2UserService,
+                                           ca.dtadmi.gamehubapi.security.oauth.OAuth2AuthenticationSuccessHandler successHandler,
+                                           ca.dtadmi.gamehubapi.security.oauth.OAuth2AuthenticationFailureHandler failureHandler) throws Exception {
         http
                 .cors(cors -> {
                 })
@@ -61,6 +65,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
                                 "/graphql",
                                 "/api/health",
                                 "/api/leaderboard",
@@ -82,6 +88,11 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService))
+                        .successHandler(successHandler)
+                        .failureHandler(failureHandler)
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers

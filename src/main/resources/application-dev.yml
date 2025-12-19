@@ -19,6 +19,34 @@ spring:
   h2:
     console:
       enabled: true
+  # OAuth2 Client Configuration
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your-google-client-secret}
+            scope:
+              - email
+              - profile
+          github:
+            client-id: ${GITHUB_CLIENT_ID:your-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:your-github-client-secret}
+            scope:
+              - user:email
+              - read:user
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID:your-facebook-client-id}
+            client-secret: ${FACEBOOK_CLIENT_SECRET:your-facebook-client-secret}
+            scope:
+              - email
+              - public_profile
+
+# OAuth2 Redirect URI for development
+app:
+  oauth2:
+    allowedRedirectUris: http://localhost:3000/oauth2/redirect,http://localhost:8080/oauth2/redirect
 
 # Disable any Cloud SQL specific configuration in dev profile (if present)
 cloud:
@@ -31,3 +59,4 @@ logging:
     root: INFO
     org.springframework: WARN
     com.games: DEBUG
+    org.springframework.security: DEBUG
