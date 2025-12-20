@@ -28,6 +28,7 @@ Table of contents
 8. Troubleshooting
 9. Cloud SQL connectivity (Private IP vs Proxy)
 10. STOMP rate limiting (Realtime WebSocket)
+11. OpenAPI & Swagger (Bearer auth)
 
 —
 
@@ -58,6 +59,22 @@ Security
 
 - Public read endpoints for games/projects; gated/admin endpoints require roles
 - JWT path available; optional Firebase token filter can be enabled by providing credentials
+
+OpenAPI & Swagger
+
+- Swagger UI is served at `/swagger-ui.html`.
+- Click the "Authorize" button and enter `Bearer <your-access-token>` to authorize requests to protected endpoints.
+- Common error responses are documented and used consistently:
+    - `401 Unauthorized` (missing/invalid token)
+    - `403 Forbidden` (insufficient role)
+    - `429 Too Many Requests` (rate limit exceeded; includes `Retry-After` header)
+
+RBAC and admin seeding
+
+- Admin-only endpoints under `/api/admin/**` require `ROLE_ADMIN` (enforced via `@PreAuthorize`).
+- On startup, the app grants admin to users whose email matches the comma-separated list in `app.admin.emails` (or env
+  `APP_ADMIN_EMAILS`).
+- Example: `APP_ADMIN_EMAILS=you@example.com,teammate@example.com`.
 
 ## 2) Environment variables
 
@@ -144,6 +161,29 @@ curl -s http://localhost:8080/actuator/health
 curl -s "http://localhost:8080/api/scores?gameType=snake" | jq
 curl -s http://localhost:8080/api/scores/leaderboard | jq
 ```
+
+Authentication and tokens
+
+- Primary flow: Frontend uses Firebase/NextAuth for OAuth with Google/GitHub. Backend verifies Firebase ID token and
+  issues first‑party JWT + refresh tokens.
+- Endpoints:
+    - `POST /api/auth/firebase/exchange` — body `{ "idToken": "<firebase-id-token>" }` or header
+      `Authorization: Bearer <idToken>`.
+    - `POST /api/auth/refresh` — exchanges a valid refresh token for a new access token.
+    - `POST /api/auth/logout` — revokes refresh token.
+- Include `Authorization: Bearer <access-token>` for protected endpoints.
+
+REST rate limiting
+
+- Public and user endpoints are protected via Resilience4j-based rate limiting; excess requests receive
+  `429 Too Many Requests` with a `Retry-After` hint.
+- Defaults: guests ~60/min, authenticated users ~300/min (tunable per env). In dev, limits are in-memory; in prod, use
+  Redis for consistency across instances.
+
+Security headers
+
+- Response headers include CSP, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, and HSTS (enabled in
+  production). CSRF is disabled for stateless APIs; sessions are stateless.
 
 ## 4) Running tests
 
@@ -351,6 +391,13 @@ Feature flags:
 
 - `GET /api/features` returns all flags (env defaults merged with runtime overrides)
 - `POST /api/admin/features/{flag}/toggle?enable=true|false` toggles a known flag (ADMIN only)
+
+What’s next (high level)
+
+- Pagination/sorting/filtering on list endpoints
+- Flyway-managed schema migrations
+- Structured JSON logging with correlation IDs; distributed tracing (OpenTelemetry)
+- Redis-backed caches and REST rate limits for production (Memorystore + VPC connector)
 
 ## 8) Troubleshooting
 

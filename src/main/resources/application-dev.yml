@@ -46,10 +46,13 @@ spring:
               - email
               - public_profile
 
-# OAuth2 Redirect URI for development
+# OAuth2 Redirect URI for development and admin seeding
 app:
   oauth2:
     allowedRedirectUris: http://localhost:3000/oauth2/redirect,http://localhost:8080/oauth2/redirect
+  admin:
+    # RBAC admin seeding (comma-separated emails); override via env APP_ADMIN_EMAILS or property app.admin.emails
+    emails: ${APP_ADMIN_EMAILS:}
 
 # Disable any Cloud SQL specific configuration in dev profile (if present)
 cloud:
