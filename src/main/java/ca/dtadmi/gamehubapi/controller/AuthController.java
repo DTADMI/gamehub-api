@@ -7,6 +7,9 @@ import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.security.CustomUserDetailsService;
 import ca.dtadmi.gamehubapi.security.JwtTokenProvider;
 import ca.dtadmi.gamehubapi.service.RefreshTokenService;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.FirebaseToken;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -35,6 +38,7 @@ public class AuthController {
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final CustomUserDetailsService userDetailsService;
+    private final org.springframework.beans.factory.ObjectProvider<FirebaseAuth> firebaseAuthProvider;
 
     @Value("${app.jwtExpirationInMs:3600000}")
     private int jwtExpirationInMs;
@@ -45,7 +49,8 @@ public class AuthController {
             PasswordEncoder passwordEncoder,
             JwtTokenProvider tokenProvider,
             RefreshTokenService refreshTokenService,
-            CustomUserDetailsService userDetailsService
+            CustomUserDetailsService userDetailsService,
+            org.springframework.beans.factory.ObjectProvider<FirebaseAuth> firebaseAuthProvider
     ) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
@@ -53,6 +58,7 @@ public class AuthController {
         this.tokenProvider = tokenProvider;
         this.refreshTokenService = refreshTokenService;
         this.userDetailsService = userDetailsService;
+        this.firebaseAuthProvider = firebaseAuthProvider;
     }
 
     /**
@@ -168,6 +174,76 @@ public class AuthController {
         response.put("tokenType", "Bearer");
         response.put("expiresIn", jwtExpirationInMs);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Exchange a Firebase ID token (from frontend social login) for our API JWT + refresh token.
+     * Accepts the ID token in the Authorization header (Bearer) or JSON body key "idToken".
+     */
+    @PostMapping("/firebase/exchange")
+    public ResponseEntity<?> exchangeFirebaseToken(@RequestBody(required = false) Map<String, Object> body,
+                                                   @RequestHeader(value = "Authorization", required = false) String authorization) {
+        FirebaseAuth firebaseAuth = firebaseAuthProvider.getIfAvailable();
+        if (firebaseAuth == null) {
+            return ResponseEntity.status(501).body(Map.of(
+                    "error", "Firebase not configured",
+                    "message", "Enable Firebase by setting NEXT_FIREBASE_CREDS_* and running with prod profile"
+            ));
+        }
+
+        String idToken = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            idToken = authorization.substring("Bearer ".length());
+        }
+        if ((idToken == null || idToken.isBlank()) && body != null && body.get("idToken") != null) {
+            idToken = String.valueOf(body.get("idToken"));
+        }
+        if (idToken == null || idToken.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "idToken required (Authorization: Bearer or body.idToken)"));
+        }
+
+        try {
+            FirebaseToken decoded = firebaseAuth.verifyIdToken(idToken);
+            String email = decoded.getEmail();
+            String name = decoded.getName();
+            if (email == null || email.isBlank()) {
+                // fallback to UID-based synthetic email
+                email = decoded.getUid() + "@firebase.local";
+            }
+            final String fEmail = email;
+            final String fName = name;
+
+            // Upsert user
+            User user = userRepository.findByEmail(fEmail).orElseGet(() -> {
+                User u = new User();
+                u.setEmail(fEmail);
+                u.setUsername((fName != null && !fName.isBlank()) ? fName : fEmail);
+                u.setPassword("{noop}firebase");
+                u.getRoles().add("ROLE_USER");
+                return u;
+            });
+            if (user.getId() == null) {
+                user = userRepository.save(user);
+            }
+
+            String accessToken = tokenProvider.generateTokenForSubject(user.getEmail());
+            RefreshToken rt = refreshTokenService.issue(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("accessToken", accessToken);
+            response.put("refreshToken", rt.getToken());
+            response.put("tokenType", "Bearer");
+            response.put("expiresIn", jwtExpirationInMs);
+            response.put("provider", decoded.getIssuer());
+            response.put("uid", decoded.getUid());
+
+            return ResponseEntity.ok(response);
+        } catch (FirebaseAuthException e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "error", "invalid_firebase_token",
+                    "message", e.getMessage()
+            ));
+        }
     }
 
     private String firstNonBlank(Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request, String key) {

@@ -31,7 +31,12 @@
 
 ### Authentication & Authorization
 
-- [ ] Implement OAuth2 with social providers
+- [x] Implement OAuth2 with social providers
+  - Implemented via Firebase/NextAuth (frontend performs OAuth with Google/GitHub; backend validates Firebase ID tokens
+    and issues first‑party JWT + refresh tokens)
+  - Added endpoint: POST /api/auth/firebase/exchange (accepts Authorization: Bearer <Firebase ID token> or {"
+    idToken": "..."})
+  - Enabled conditional FirebaseTokenFilter (active when Firebase is configured)
 - [ ] Add role-based access control (RBAC)
 - [ ] Set up rate limiting for public endpoints
 

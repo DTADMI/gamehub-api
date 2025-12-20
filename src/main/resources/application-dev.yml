@@ -4,11 +4,11 @@ server:
 
 spring:
   datasource:
-    driver-class-name: org.h2.Driver
-    # File-based DB under target/ so it resets on clean builds but persists during a dev session
-    url: jdbc:h2:file:./target/h2/devdb;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
-    username: sa
-    password: ""
+    driver-class-name: org.postgresql.Driver
+    # Use local Postgres (Docker) for dev. Values are overridable by env vars.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gamesdb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -16,9 +16,7 @@ spring:
     properties:
       hibernate:
         format_sql: false
-  h2:
-    console:
-      enabled: true
+  # No H2 console in dev — using Postgres instead
   # OAuth2 Client Configuration
   security:
     oauth2:

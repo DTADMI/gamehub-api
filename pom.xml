@@ -156,21 +156,12 @@
          ad-hoc version properties. -->
 
     <dependencies>
-        <!-- OAuth2 Client for social login -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
-            <version>${spring-boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-oauth2-client</artifactId>
-        </dependency>
+        <!-- OAuth2 client dependencies removed: using Firebase-based social login (frontend handles OAuth) -->
         <!-- OpenAPI/Swagger UI for REST documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.0</version>
+            <version>2.6.0</version>
         </dependency>
         <!-- Database: use Postgres at runtime; keep H2 only for tests below to avoid duplicate declarations -->
 

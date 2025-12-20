@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import com.google.firebase.auth.FirebaseAuth;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -53,9 +54,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtAuthenticationFilter jwtAuthFilter,
-                                           ca.dtadmi.gamehubapi.security.oauth.CustomOAuth2UserService oAuth2UserService,
-                                           ca.dtadmi.gamehubapi.security.oauth.OAuth2AuthenticationSuccessHandler successHandler,
-                                           ca.dtadmi.gamehubapi.security.oauth.OAuth2AuthenticationFailureHandler failureHandler) throws Exception {
+                                           org.springframework.beans.factory.ObjectProvider<FirebaseAuth> firebaseAuthProvider) throws Exception {
         http
                 .cors(cors -> {
                 })
@@ -65,8 +64,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/oauth2/**",
-                                "/login/oauth2/**",
                                 "/graphql",
                                 "/api/health",
                                 "/api/leaderboard",
@@ -89,17 +86,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(oauth -> oauth
-                        .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService))
-                        .successHandler(successHandler)
-                        .failureHandler(failureHandler)
-                )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives("default-src 'self'; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"))
                         .frameOptions(frame -> frame.deny())
                 );
+
+        // If Firebase is configured, add FirebaseTokenFilter before UsernamePasswordAuthenticationFilter
+        FirebaseAuth firebaseAuth = firebaseAuthProvider.getIfAvailable();
+        if (firebaseAuth != null) {
+            http.addFilterBefore(new FirebaseTokenFilter(firebaseAuth), UsernamePasswordAuthenticationFilter.class);
+        }
 
         return http.build();
     }

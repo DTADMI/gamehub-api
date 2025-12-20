@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/scores")
+@RequestMapping(value = "/api/scores", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class ScoreController {
 
     private final GameService gameService;
