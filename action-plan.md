@@ -56,13 +56,13 @@
 ### Security
 
 - [ ] Regular security audits (OWASP dep-check profile available)
-- [ ] Harden Swagger with auth in prod (require JWT to view docs)
+- [x] Harden Swagger with auth in prod (require JWT to view docs)
 
 ### Performance
 
 - [x] Query optimizations and indexes for auth/refresh tokens
 - [ ] Redis-backed caches and rate limits in prod (Memorystore + VPC)
-- [ ] Compression and response size tuning (prod profile)
+- [x] Compression and response size tuning (prod profile)
 
 ### Documentation & Runbooks
 

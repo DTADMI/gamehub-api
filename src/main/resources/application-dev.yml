@@ -1,6 +1,10 @@
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript,text/javascript
 
 spring:
   datasource:
@@ -45,6 +49,10 @@ spring:
             scope:
               - email
               - public_profile
+  mvc:
+    log-request-details: false
+
+## HTTP compression configured above under `server.compression`
 
 # OAuth2 Redirect URI for development and admin seeding
 app:
@@ -53,6 +61,12 @@ app:
   admin:
     # RBAC admin seeding (comma-separated emails); override via env APP_ADMIN_EMAILS or property app.admin.emails
     emails: ${APP_ADMIN_EMAILS:}
+  swagger:
+    open: true
+  ratelimit:
+    # Per-minute limits; can be overridden via envs USER_RPM and GUEST_RPM
+    userRpm: ${USER_RPM:300}
+    guestRpm: ${GUEST_RPM:60}
 
 # Disable any Cloud SQL specific configuration in dev profile (if present)
 cloud:

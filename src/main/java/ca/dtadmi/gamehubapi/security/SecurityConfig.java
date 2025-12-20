@@ -32,6 +32,16 @@ public class SecurityConfig {
     @Value("${app.jwtSecret:dev-secret}")
     private String jwtSecret;
 
+    // Control Swagger visibility: open in dev by default; set APP_SWAGGER_OPEN=false in prod to require auth
+    @Value("${app.swagger.open:true}")
+    private boolean swaggerOpen;
+
+    // Rate limits per minute (configurable via env): USER_RPM, GUEST_RPM
+    @Value("${app.ratelimit.userRpm:300}")
+    private int userRpm;
+    @Value("${app.ratelimit.guestRpm:60}")
+    private int guestRpm;
+
     public SecurityConfig(JwtAuthenticationEntryPoint unauthorizedHandler) {
         this.unauthorizedHandler = unauthorizedHandler;
     }
@@ -61,31 +71,37 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/graphql",
-                                "/api/health",
-                                "/api/leaderboard",
-                                "/api/scores",
-                                "/api/scores/**",
-                                "/api/stats/**",
-                                "/healthz",
-                                "/favicon.ico",
-                                "/",
-                                "/api/featured",
-                                "/api/projects/**",
-                                "/api/features",
-                                "/api/meta",
-                                "/actuator/health",
-                                "/actuator/info",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(authz -> {
+                    // Base public routes
+                    var config = authz
+                            .requestMatchers(
+                                    "/api/auth/**",
+                                    "/graphql",
+                                    "/api/health",
+                                    "/api/leaderboard",
+                                    "/api/scores",
+                                    "/api/scores/**",
+                                    "/api/stats/**",
+                                    "/healthz",
+                                    "/favicon.ico",
+                                    "/",
+                                    "/api/featured",
+                                    "/api/projects/**",
+                                    "/api/features",
+                                    "/api/meta",
+                                    "/actuator/health",
+                                    "/actuator/info"
+                            ).permitAll()
+                            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+
+                    // Swagger/UI: permitAll only when explicitly open; otherwise require auth
+                    if (swaggerOpen) {
+                        config = config
+                                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
+                    }
+
+                    config.anyRequest().authenticated();
+                })
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp
@@ -108,24 +124,34 @@ public class SecurityConfig {
 
     @Bean
     public RateLimiterRegistry rateLimiterRegistry() {
-        return RateLimiterRegistry.of(
+        // Registry can hold multiple independent limiters
+        return RateLimiterRegistry.ofDefaults();
+    }
+
+    @Bean
+    public RateLimiter userRateLimiter(RateLimiterRegistry registry) {
+        return registry.rateLimiter("api-user",
                 RateLimiterConfig.custom()
-                        .limitForPeriod(100)
+                        .limitForPeriod(Math.max(1, userRpm))
                         .limitRefreshPeriod(Duration.ofMinutes(1))
-                        .timeoutDuration(Duration.ofSeconds(5))
-                        .build()
-        );
+                        .timeoutDuration(Duration.ofSeconds(2))
+                        .build());
     }
 
     @Bean
-    public RateLimiter rateLimiter(RateLimiterRegistry registry) {
-        return registry.rateLimiter("api");
+    public RateLimiter guestRateLimiter(RateLimiterRegistry registry) {
+        return registry.rateLimiter("api-guest",
+                RateLimiterConfig.custom()
+                        .limitForPeriod(Math.max(1, guestRpm))
+                        .limitRefreshPeriod(Duration.ofMinutes(1))
+                        .timeoutDuration(Duration.ofSeconds(2))
+                        .build());
     }
 
     @Bean
-    public FilterRegistrationBean<Filter> rateLimitFilter(RateLimiter rateLimiter) {
+    public FilterRegistrationBean<Filter> rateLimitFilter(RateLimiter userRateLimiter, RateLimiter guestRateLimiter) {
         FilterRegistrationBean<Filter> registrationBean = new FilterRegistrationBean<>();
-        registrationBean.setFilter(new RateLimitFilter(rateLimiter));
+        registrationBean.setFilter(new RateLimitFilter(userRateLimiter, guestRateLimiter));
         registrationBean.addUrlPatterns("/api/*");
         return registrationBean;
     }

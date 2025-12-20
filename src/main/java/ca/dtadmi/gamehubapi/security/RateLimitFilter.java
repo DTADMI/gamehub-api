@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -19,11 +21,13 @@ import java.util.List;
 public class RateLimitFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(RateLimitFilter.class);
 
-    private final RateLimiter rateLimiter;
+    private final RateLimiter userRateLimiter;
+    private final RateLimiter guestRateLimiter;
     private final List<String> excludedPaths = List.of("/actuator/health", "/error");
 
-    public RateLimitFilter(RateLimiter rateLimiter) {
-        this.rateLimiter = rateLimiter;
+    public RateLimitFilter(RateLimiter userRateLimiter, RateLimiter guestRateLimiter) {
+        this.userRateLimiter = userRateLimiter;
+        this.guestRateLimiter = guestRateLimiter;
     }
 
     @Override
@@ -39,10 +43,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         String clientIp = getClientIP(request);
-        int limit = rateLimiter.getRateLimiterConfig().getLimitForPeriod();
 
-        boolean permission = rateLimiter.acquirePermission();
-        int remaining = Math.max(0, (int) rateLimiter.getMetrics().getAvailablePermissions());
+        RateLimiter limiter = selectLimiter();
+        int limit = limiter.getRateLimiterConfig().getLimitForPeriod();
+
+        boolean permission = limiter.acquirePermission();
+        int remaining = Math.max(0, (int) limiter.getMetrics().getAvailablePermissions());
         response.setHeader("X-RateLimit-Limit", String.valueOf(limit));
         response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
 
@@ -51,6 +57,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else {
             rateLimitExceeded(response, clientIp, requestUri);
         }
+    }
+
+    private RateLimiter selectLimiter() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            return userRateLimiter;
+        }
+        return guestRateLimiter;
     }
 
     private String getClientIP(HttpServletRequest request) {

@@ -64,6 +64,9 @@ OpenAPI & Swagger
 
 - Swagger UI is served at `/swagger-ui.html`.
 - Click the "Authorize" button and enter `Bearer <your-access-token>` to authorize requests to protected endpoints.
+- In production you can require authentication to access Swagger and API docs by setting `APP_SWAGGER_OPEN=false` (or
+  `app.swagger.open=false`). When closed, `/swagger-ui.html` and `/v3/api-docs/**` return `401/403` without a valid JWT.
+  In `dev`, Swagger remains open by default.
 - Common error responses are documented and used consistently:
     - `401 Unauthorized` (missing/invalid token)
     - `403 Forbidden` (insufficient role)
@@ -177,13 +180,24 @@ REST rate limiting
 
 - Public and user endpoints are protected via Resilience4j-based rate limiting; excess requests receive
   `429 Too Many Requests` with a `Retry-After` hint.
-- Defaults: guests ~60/min, authenticated users ~300/min (tunable per env). In dev, limits are in-memory; in prod, use
-  Redis for consistency across instances.
+- Defaults (configurable via env):
+    - Guests: `GUEST_RPM=60`
+    - Authenticated users: `USER_RPM=300`
+    - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Retry-After` are set.
+- Implementation notes:
+    - In-memory (per-instance) by default to minimize cost. Enable Redis-backed rate limits only in prod if you provide
+      a Redis URL/host (Memorystore) for consistency across instances.
 
 Security headers
 
 - Response headers include CSP, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, and HSTS (enabled in
   production). CSRF is disabled for stateless APIs; sessions are stateless.
+
+HTTP compression
+
+- Gzip compression is enabled with conservative defaults. You can tune via `server.compression.*` (e.g.,
+  `min-response-size`, `mime-types`).
+  Enabled by default in dev; recommended for prod to reduce egress costs.
 
 ## 4) Running tests
 
