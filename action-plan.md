@@ -3,7 +3,11 @@
 ## Completed
 
 - [x] Set up Spring Boot 3 with Java 21
-- [x] Configure PostgreSQL with H2 for development
+- [x] Configure PostgreSQL for development (Docker-backed Postgres; H2 removed from dev)
+- [x] Automatic Postgres launch
+  - [x] Dev: Spring Boot Docker Compose support auto-starts `postgres` from `docker-compose.yml` and stops it on app
+    exit
+  - [x] Tests: Postgres Testcontainer starts automatically via `BaseIntegrationTest`
 - [x] Implement basic API endpoints
     - [x] Health check endpoints
     - [x] Meta information endpoint
@@ -12,6 +16,7 @@
 - [x] Set up JWT authentication
 - [x] Implement basic CORS configuration
 - [x] Set up local development environment
+- [x] Update documentation for dev using Postgres (README, guidelines)
 - [x] Configure Testcontainers for integration testing
 - [x] Set up GitHub Actions for CI/CD
 - [x] Deploy to Google Cloud Run

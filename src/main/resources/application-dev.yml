@@ -16,7 +16,12 @@ spring:
     properties:
       hibernate:
         format_sql: false
-  # No H2 console in dev — using Postgres instead
+  # Using Postgres as dev DB
+  docker:
+    compose:
+      enabled: true
+      file: docker-compose.yml
+      lifecycle-management: start-and-stop
   # OAuth2 Client Configuration
   security:
     oauth2:

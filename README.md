@@ -39,7 +39,7 @@ Spring Boot 3 + Java 21
 - Cons: higher memory footprint vs Go/Node; slower cold start than Go
 - Alternatives: Node (NestJS), Go (Fiber, Echo). Both are lighter but would duplicate existing JVM skills/libs.
 
-PostgreSQL (Cloud SQL in prod, H2 for dev profile)
+PostgreSQL (Cloud SQL in prod, Postgres Docker for dev)
 
 - Pros: reliability, ACID, broad driver support; works seamlessly with Hibernate/JPA
 - Alternatives: MySQL; or serverless options (AlloyDB Omni, Firestore) depending on data model
@@ -73,7 +73,7 @@ Contact/social (displayed by frontend and available via `/api/meta`):
 - `APP_LINKEDIN_URL` — LinkedIn profile URL
 - `APP_CONTACT_EMAIL` — public email
 
-Database (default profile; not needed for `dev` H2 profile):
+Database (default profile; dev uses PostgreSQL via Docker — not H2):
 
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
 
@@ -92,29 +92,39 @@ Cloud Run/Cloud SQL (prod):
 
 ## 3) Running locally
 
-Prerequisites: Java 21, Maven, Docker (for tests only).
+Prerequisites: Java 21, Maven, Docker (for Postgres and tests).
 
-Dev profile (H2; easy mode):
+Automatic Postgres startup (dev):
+
+- With Spring Boot 3.2’s Docker Compose support enabled, running the app in the `dev` profile will automatically bring
+  up the `postgres` service from the root `docker-compose.yml`, and tear it down when the app stops. No manual
+  `docker compose up` is required.
+
+Start the backend in dev profile (auto‑starts Postgres):
 ```
 mvn -Pdev spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Backend listens on http://localhost:8080.
+Notes:
 
-Default profile (Postgres):
-```
-docker run --rm \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=gamesdb \
-  -p 5432:5432 postgres:15-alpine
+- The `dev` profile uses PostgreSQL. Defaults point to `jdbc:postgresql://localhost:5432/gamesdb` with
+  `postgres/postgres`.
+- You can override via envs: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`.
+- Spring Boot’s compose integration is configured in `application-dev.yml` under `spring.docker.compose.*` and uses the
+  top‑level `docker-compose.yml`. It performs `start-and-stop` lifecycle management, so containers stop when the app
+  exits.
 
-set DB_HOST=localhost
-set DB_PORT=5432
-set DB_NAME=gamesdb
-set DB_USER=postgres
-set DB_PASSWORD=postgres
-mvn spring-boot:run
-```
+Fallback/manual options (if you prefer to manage Docker yourself):
+
+- Docker Compose (recommended):
+  ```
+  docker compose up -d postgres
+  ```
+- Single container:
+  ```
+  docker run --name gamehub_postgres --rm -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gamesdb -p 5432:5432 postgres:15-alpine
+  ```
+- Backend listens on http://localhost:8080.
 
 Useful public endpoints:
 
@@ -142,8 +152,12 @@ Requires Docker for Testcontainers.
 mvn -q -DskipITs=false test
 ```
 
-Postgres Testcontainer is auto-wired via `@ServiceConnection`. Firebase-dependent beans are conditional; tests run
-without Firebase credentials.
+Automatic Postgres for tests:
+
+- Integration tests start an isolated PostgreSQL Testcontainer automatically (see `BaseIntegrationTest`). The test
+  environment does not depend on `docker-compose.yml` and does not reuse the dev database, ensuring isolation and
+  reproducibility.
+- Firebase-dependent beans are conditional; tests run without Firebase credentials.
 
 ## 5) Manual deployment to GCP (Cloud Run)
 
@@ -343,7 +357,8 @@ Feature flags:
 - Port in use: backend runs on 8080; stop conflicting processes or set `PORT` env when running
 - Testcontainers slow: pre-pull `postgres:15-alpine`
 - Cloud Run deploy fails: check Artifact Registry permissions and `gcloud auth configure-docker`
-- Database connection: confirm `SPRING_DATASOURCE_URL` or `DB_*` envs; in `dev` profile H2 is used instead
+- Database connection: confirm Postgres is running (`docker compose ps`), and the `dev` profile points to it (defaults
+  provided). Override with `SPRING_DATASOURCE_*` if needed.
 
 ## 9) Cloud SQL connectivity: Private IP vs Public IP with Proxy
 

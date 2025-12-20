@@ -163,7 +163,6 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.6.0</version>
         </dependency>
-        <!-- Database: use Postgres at runtime; keep H2 only for tests below to avoid duplicate declarations -->
 
         <!-- Spring Boot Auto Configuration -->
         <dependency>
@@ -220,13 +219,6 @@
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-secretmanager</artifactId>
             <version>2.81.0</version>
-        </dependency>
-
-        <!-- In-memory H2 Database for development and testing -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <!-- Redis -->
@@ -390,6 +382,12 @@
             <artifactId>google-auth-library-oauth2-http</artifactId>
         </dependency>
 
+        <!-- Spring Boot Docker Compose support (auto-start services like Postgres for dev runs) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
@@ -531,12 +529,6 @@
 
     <!-- Optional profiles -->
     <profiles>
-        <!-- Local development profile: enable H2 at runtime so devs don't need Postgres -->
-        <profile>
-            <id>dev</id>
-            <dependencies>
-            </dependencies>
-        </profile>
         <!-- Run OWASP Dependency-Check only when explicitly requested: mvn -U clean verify -Powasp -->
         <profile>
             <id>owasp</id>
