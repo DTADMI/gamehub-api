@@ -75,13 +75,26 @@
 - [ ] Operational runbooks (deploy, rollback, secrets rotation)
 - [ ] Monitoring/alerting docs (dashboards, SLOs)
 
+### Frontend alignment (new)
+
+- [x] Confirmed integration contracts with Next.js frontend (see repo `gamehub-app`) — `NEXT_PUBLIC_API_URL` points to
+  `<backend>/api` ✓
+- [x] Auth routes expected by frontend:
+  - `POST /api/auth/signin`, `POST /api/auth/signup`, `POST /api/auth/refresh`, `GET /api/auth/me`
+- [x] Scores pagination endpoint available: `GET /api/scores/page?gameType=...&page=&size=&sort=`; legacy
+  `GET /api/scores` preserved
+- [x] Projects pagination endpoint: `GET /api/projects?page=&size=&sort=`
+- [x] CORS: ensure frontend origin is included in `CORS_ALLOWED_ORIGINS`
+- [x] Correlation: backend echoes `X-Request-Id`; frontend may pass it through for traceability
+- [ ] OpenAPI enhancements to document pagination params and error schemas clearly for frontend consumers
+
 ## Delivery Timeline (proposed)
 
 1. Flyway migrations + pagination/filtering (short) — 1–2 days
-2. Structured logging + trace IDs end-to-end — 1 day
-3. Redis-backed rate limiting/caching (prod) — 1–2 days
-4. OpenTelemetry tracing + alerting setup — 2–3 days
-5. Feature flags: segmentation + gradual rollout — 2–3 days
+2. Structured logging toggle (JSON) + trace IDs end-to-end — 1 day
+3. Redis-backed rate limiting/caching (prod) — 1–2 days (optional/cost‑gated)
+4. OpenTelemetry tracing + alerting setup — 2–3 days (optional/off by default)
+5. Feature flags: segmentation + gradual rollout — 2–3 days ✓
 
 ## Acceptance Criteria (for this phase)
 
@@ -90,3 +103,16 @@
 - Flyway manages schema end-to-end for dev/test/prod
 - JSON logs contain correlation IDs and minimal PII
 - Rate limits configurable per environment; prod uses Redis
+
+## Suggestions / Nice-to-haves (backlog)
+
+- Achievements & badges service (per game; seasonal ladders) with public profiles
+- Seasonal leaderboards and score seasons rollover (scheduled job)
+- Webhooks for high-score events (signed, admin‑configurable destinations)
+- Server‑sent events (SSE) or WebSocket channel for live leaderboard updates
+- ETags and `If-None-Match` on list endpoints for CDN/browser caching
+- Export/My data endpoints (GDPR) and account deletion workflow
+- Basic anti‑abuse telemetry for score submissions (client hints, timing, device fingerprint light‑touch)
+- Admin metrics dashboard (top players, DAU/MAU, error/429 rates)
+- Rate limiting strategies: per IP + per identity + per route buckets, configurable at runtime
+- Background jobs runner (Spring Scheduling) for cache warmups and cleanup

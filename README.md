@@ -31,6 +31,7 @@ Table of contents
 11. OpenAPI & Swagger (Bearer auth)
 12. Pagination on list endpoints
 13. Structured logging & request IDs
+14. Frontend integration & contracts
 
 —
 
@@ -533,6 +534,34 @@ Swagger/OpenAPI
 
 - No new endpoints were introduced for throttling; behavior is applied at the STOMP channel layer. REST endpoints are
   unchanged. Swagger still documents the public REST routes.
+
+## 14) Frontend integration & contracts
+
+Frontend (Next.js 16) expects to talk to this backend via a single base URL and a small set of stable routes.
+
+- API base: set `NEXT_PUBLIC_API_URL` on the frontend to point to this backend and include the `/api` suffix.
+    - Local example: `NEXT_PUBLIC_API_URL=http://localhost:8080/api`
+- CORS: include the frontend origin in `CORS_ALLOWED_ORIGINS` (no trailing slash). For multiple origins, use comma‑sep.
+    - Example: `CORS_ALLOWED_ORIGINS=http://localhost:3000,https://<frontend-domain>`
+- Auth routes used by the frontend credentials/OAuth flows:
+    - `POST /api/auth/signin`
+    - `POST /api/auth/signup`
+    - `POST /api/auth/refresh`
+    - `GET  /api/auth/me`
+    - Optional Firebase exchange: `POST /api/auth/firebase/exchange`
+- Pagination contracts used in UI lists:
+    - Projects: `GET /api/projects?page=0&size=20&sort=createdAt,desc` (size capped at 100)
+    - Scores (paged): `GET /api/scores/page?gameType=snake&page=0&size=20&sort=score,desc`
+    - Legacy scores list remains available at `GET /api/scores?gameType=snake` for backward compatibility
+- Observability & headers:
+    - Backend echoes/sets `X-Request-Id`. The frontend may forward incoming `X-Request-Id` to correlate logs across
+      tiers.
+    - Rate limiting headers returned on `/api/*`: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Retry-After` (429).
+- Swagger:
+    - In prod you can require JWT to view docs by setting `APP_SWAGGER_OPEN=false`; in dev, Swagger remains open.
+
+Tip: Keep the frontend’s `.env.local` aligned with the backend’s base URL and CORS origin. See the frontend repo
+README for additional variables (NextAuth, OAuth provider secrets).
 
 —
 
