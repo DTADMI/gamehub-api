@@ -1,5 +1,7 @@
 package ca.dtadmi.gamehubapi.projects;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,11 @@ public class ProjectsService {
     @Transactional(readOnly = true)
     public List<Project> listAll() {
         return repository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Project> page(Pageable pageable) {
+        return repository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

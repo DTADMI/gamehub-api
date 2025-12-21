@@ -29,6 +29,8 @@ Table of contents
 9. Cloud SQL connectivity (Private IP vs Proxy)
 10. STOMP rate limiting (Realtime WebSocket)
 11. OpenAPI & Swagger (Bearer auth)
+12. Pagination on list endpoints
+13. Structured logging & request IDs
 
 —
 
@@ -155,6 +157,14 @@ Useful public endpoints:
 - `GET /api/features` — current feature flags
 - `GET /api/projects` — placeholder projects list
 - `GET /api/featured` — sample featured games
+
+Pagination
+
+- List endpoints support optional pagination parameters:
+    - `?page=<0-based>` (default 0)
+    - `?size=<1..100>` (default 20; capped at 100)
+    - Sorting (where applicable): `?sort=field,asc|desc`
+    - Example: `GET /api/projects?page=0&size=20&sort=createdAt,desc`
 
 Quick API examples:
 

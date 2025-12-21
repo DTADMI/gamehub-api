@@ -34,6 +34,7 @@
   - [ ] Gradual rollouts (percentage / cohorts)
 - [ ] Logging improvements
   - [ ] Structured JSON logs (Logstash encoder) with correlation IDs
+  - [x] Request ID filter adds and returns X-Request-Id; MDC propagation
   - [x] Consistent error responses (Problem Details)
 
 ## Planned (Next up)
@@ -41,11 +42,14 @@
 ### API Enhancements
 
 - [ ] Pagination, sorting, filtering for list endpoints (projects, scores)
+  - [x] Projects endpoint supports Pageable with size cap
+  - [ ] Scores endpoint pagination
 
 ### Database
 
 - [ ] Introduce Flyway migrations (baseline current schema; forward-only)
-- [ ] Index review (scores per game/user; email uniqueness already in place)
+  - [ ] Index review (scores per game/user; email uniqueness already in place)
+  - Note: dependency resolution for Flyway is blocked in this environment; keep planned and enable when deps resolve
 
 ### Monitoring & Observability
 
