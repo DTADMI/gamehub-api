@@ -29,21 +29,22 @@
 
 ## In Progress
 
-- [ ] Feature flags enhancements
-  - [ ] Segmentation (by role/user/email suffix)
-  - [ ] Gradual rollouts (percentage / cohorts)
+- [x] Feature flags enhancements
+  - [x] Segmentation (by role/user/email suffix)
+  - [x] Gradual rollouts (percentage / cohorts)
 - [ ] Logging improvements
   - [ ] Structured JSON logs (Logstash encoder) with correlation IDs
   - [x] Request ID filter adds and returns X-Request-Id; MDC propagation
+  - [x] Authentication MDC enrichment (userId/email) filter
   - [x] Consistent error responses (Problem Details)
 
 ## Planned (Next up)
 
 ### API Enhancements
 
-- [ ] Pagination, sorting, filtering for list endpoints (projects, scores)
+- [x] Pagination, sorting, filtering for list endpoints (projects, scores)
   - [x] Projects endpoint supports Pageable with size cap
-  - [ ] Scores endpoint pagination
+  - [x] Scores endpoint pagination (new /api/scores/page; legacy list preserved)
 
 ### Database
 

@@ -6,6 +6,7 @@ import ca.dtadmi.gamehubapi.model.User;
 import ca.dtadmi.gamehubapi.repository.GameScoreRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -72,6 +73,15 @@ public class GameService {
 
     public List<GameScore> recentScores(String gameType, Integer limit) {
         return getLeaderboard(gameType, limit);
+    }
+
+    public Page<GameScore> pageRecentScores(String gameType, Pageable pageable) {
+        // Enforce sensible defaults and ordering if not provided
+        int size = Math.min(pageable.getPageSize(), 100);
+        Sort sort = pageable.getSort().isUnsorted() ?
+                Sort.by("score").descending().and(Sort.by("createdAt").descending()) : pageable.getSort();
+        Pageable p = PageRequest.of(pageable.getPageNumber(), size, sort);
+        return gameScoreRepository.findByGameTypeOrderByScoreDescCreatedAtAsc(gameType, p);
     }
 
     // Legacy aggregate endpoint support

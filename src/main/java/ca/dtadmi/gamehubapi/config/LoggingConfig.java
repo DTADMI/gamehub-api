@@ -1,5 +1,6 @@
 package ca.dtadmi.gamehubapi.config;
 
+import ca.dtadmi.gamehubapi.logging.AuthenticationLoggingFilter;
 import ca.dtadmi.gamehubapi.logging.RequestIdFilter;
 import jakarta.servlet.Filter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -14,6 +15,15 @@ public class LoggingConfig {
         FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>();
         bean.setFilter(new RequestIdFilter());
         bean.setOrder(1); // early in chain
+        bean.addUrlPatterns("/*");
+        return bean;
+    }
+
+    @Bean
+    public FilterRegistrationBean<Filter> authenticationLoggingFilterRegistration() {
+        FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>();
+        bean.setFilter(new AuthenticationLoggingFilter());
+        bean.setOrder(2); // after request id
         bean.addUrlPatterns("/*");
         return bean;
     }

@@ -413,8 +413,17 @@ Admin/gated routes:
 
 Feature flags:
 
-- `GET /api/features` returns all flags (env defaults merged with runtime overrides)
+- `GET /api/features` returns all flags evaluated for the current user (segmentation + gradual rollout applied when
+  authenticated). Falls back to environment defaults when unauthenticated.
+- `GET /api/features/me` returns only evaluated booleans for the current user.
 - `POST /api/admin/features/{flag}/toggle?enable=true|false` toggles a known flag (ADMIN only)
+
+Targeting and rollout (env-driven; examples):
+
+- `features.chat_enabled.allowRoles=ROLE_ADMIN,ROLE_USER`
+- `features.chat_enabled.allowEmails=a@example.com,b@company.org`
+- `features.chat_enabled.allowEmailDomains=example.com,company.org`
+- `features.chat_enabled.rolloutPercent=25`  (0..100; stable hashing by email for cohorts)
 
 What’s next (high level)
 

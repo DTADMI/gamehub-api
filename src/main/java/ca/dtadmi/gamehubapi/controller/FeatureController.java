@@ -4,6 +4,7 @@ import ca.dtadmi.gamehubapi.features.FeatureFlagsService;
 import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,9 +23,12 @@ public class FeatureController {
     }
 
     @GetMapping("/features")
-    public ResponseEntity<Map<String, Object>> all() {
-        // Start with the centralized feature flags (service-backed)
-        Map<String, Object> res = new HashMap<>(flags.evaluateAll());
+    public ResponseEntity<Map<String, Object>> all(Authentication authentication) {
+        // Start with the centralized feature flags (service-backed), evaluated per current user if available
+        Map<String, Boolean> evaluated = (authentication != null)
+                ? flags.evaluateAll(authentication)
+                : flags.evaluateAll();
+        Map<String, Object> res = new HashMap<>(evaluated);
 
         // Merge additional environment-driven feature/config flags that existed in the
         // former FeaturesController. Keep keys distinct from the service set to avoid
@@ -39,6 +43,17 @@ public class FeatureController {
         putIfAbsent(res, "mail.provider", env.getProperty("features.mail.provider", "smtp"));
 
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * Convenience endpoint returning only boolean flags evaluated for the current principal.
+     */
+    @GetMapping("/features/me")
+    public ResponseEntity<Map<String, Boolean>> me(Authentication authentication) {
+        Map<String, Boolean> evaluated = (authentication != null)
+                ? flags.evaluateAll(authentication)
+                : flags.evaluateAll();
+        return ResponseEntity.ok(evaluated);
     }
 
     @PostMapping("/admin/features/{flag}/toggle")

@@ -7,6 +7,9 @@ import ca.dtadmi.gamehubapi.repository.UserRepository;
 import ca.dtadmi.gamehubapi.service.GameService;
 import ca.dtadmi.gamehubapi.service.ScoreValidationService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -72,6 +75,19 @@ public class ScoreController {
             @RequestParam(required = false) Integer limit
     ) {
         return ResponseEntity.ok(gameService.recentScores(gameType, limit));
+    }
+
+    // New pageable endpoint (keeps legacy list endpoint intact for backward compatibility and existing tests)
+    @GetMapping("/page")
+    public ResponseEntity<Page<GameScore>> getScoresPage(
+            @RequestParam String gameType,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        int maxSize = 100;
+        if (pageable.getPageSize() > maxSize) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(gameService.pageRecentScores(gameType, pageable));
     }
 
     @GetMapping("/leaderboard")
