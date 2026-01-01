@@ -25,6 +25,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Configuration
+@Profile("prod")
 @ConfigurationProperties(prefix = "firebase")
 @EnableConfigurationProperties
 @Data
@@ -46,7 +47,6 @@ public class FirebaseConfig {
     @Value("${DARK_SECRET:}")
     private String darkSecret;
 
-    @Profile("prod")
     @Bean
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${firebase.privateKey:}')")
     public FirebaseApp firebaseApp() throws IOException {

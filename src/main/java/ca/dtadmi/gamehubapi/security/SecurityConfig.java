@@ -1,6 +1,5 @@
 package ca.dtadmi.gamehubapi.security;
 
-import com.google.firebase.auth.FirebaseAuth;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
@@ -63,8 +62,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           JwtAuthenticationFilter jwtAuthFilter,
-                                           org.springframework.beans.factory.ObjectProvider<FirebaseAuth> firebaseAuthProvider) throws Exception {
+                                           JwtAuthenticationFilter jwtAuthFilter) throws Exception {
         http
                 .cors(cors -> {
                 })
@@ -109,16 +107,12 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .referrerPolicy(rp -> rp.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true))
-                        .contentTypeOptions(withDefaults -> {
+                        .contentTypeOptions(c -> {
                         })
                 );
 
-        // If Firebase is configured, add FirebaseTokenFilter before UsernamePasswordAuthenticationFilter
-        FirebaseAuth firebaseAuth = firebaseAuthProvider.getIfAvailable();
-        if (firebaseAuth != null) {
-            http.addFilterBefore(new FirebaseTokenFilter(firebaseAuth), UsernamePasswordAuthenticationFilter.class);
-        }
-
+        // Firebase token filter is optional and only enabled via explicit config in prod
+        
         return http.build();
     }
 
